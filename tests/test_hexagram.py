@@ -1,6 +1,7 @@
 """卦象计算测试。"""
 
-from bagua.cli import build_hexagram, parse_coin_input
+from bagua.divination import parse_coin_input
+from bagua.hexagram import build_hexagram
 
 
 def test_pure_yang_hexagram():

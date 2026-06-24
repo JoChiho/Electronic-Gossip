@@ -62,7 +62,13 @@ Electronic-Gossip/
 ├── bagua/                  # Python 包
 │   ├── __init__.py
 │   ├── __main__.py         # python -m bagua
-│   ├── cli.py              # 主程序逻辑
+│   ├── cli.py              # 终端展示层（Rich + input）
+│   ├── service.py          # perform_divination() 统一入口
+│   ├── hexagram.py         # 卦象构建
+│   ├── divination.py       # 起卦纯逻辑
+│   ├── prompt.py           # AI 提示词生成
+│   ├── config.py           # 配置与记录持久化
+│   ├── models.py / data.py
 │   └── timezone.py         # 时区解析（含 Windows 兼容）
 ├── tests/                  # 单元测试
 ├── docs/WORKFLOW.txt       # 开发工作流程与路线图
@@ -124,7 +130,15 @@ pyinstaller --onefile --name bagua --console bagua.py
 
 ## 问题记录与版本历史
 
-### v0.2.1（当前）
+### v0.3.0（当前）
+
+| 变更 | 说明 |
+|------|------|
+| 架构重构 | 拆分 service / divination / hexagram 等模块，CLI 瘦身 |
+| perform_divination() | CLI 与后续 GUI 共用统一起卦入口 |
+| 测试增至 20 项 | 含 test_service.py、test_divination.py |
+
+### v0.2.1
 
 | 问题 | 状态 | 说明 |
 |------|------|------|
@@ -148,7 +162,7 @@ pyinstaller --onefile --name bagua --console bagua.py
 | 阶段 | 内容 | 状态 |
 |------|------|------|
 | 0 | 目录清理 + 工作流程文档 | 基本完成 |
-| 1 | 架构重构（service 层，为 GUI 做准备） | 待开始 |
+| 1 | 架构重构（service 层，为 GUI 做准备） | ✅ 已完成 |
 | 2 | Tkinter 简易 GUI | 待开始 |
 | 3 | CLI 参数、历史记录、体验优化 | 待开始 |
 | 4 | 八字排盘、农历起卦 | 待开始 |
