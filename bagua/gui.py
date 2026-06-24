@@ -5,7 +5,10 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 
-from bagua.config import load_config, save_config, save_record
+from bagua.clipboard import copy_to_clipboard
+from bagua.config import load_config, save_config
+from bagua.gui_canvas import HexagramCanvas
+from bagua.records import delete_record, list_records, load_record_json, save_record
 from bagua.divination import tosses_to_yao_value
 from bagua.gui_display import format_hexagram_display
 from bagua.models import DivinationRecord, UserConfig, UserContext
@@ -216,10 +219,17 @@ class BaguaGuiApp(tk.Tk):
         frame = ttk.LabelFrame(parent, text="卦象结果", style="Section.TLabelframe", padding=8)
         frame.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
 
+        result_row = ttk.Frame(frame)
+        result_row.pack(fill=tk.BOTH, expand=True)
+
+        self.hexagram_canvas = HexagramCanvas(result_row, width=280, height=220)
+        self.hexagram_canvas.pack(side=tk.LEFT, padx=(0, 12))
+        self.hexagram_canvas.draw_hexagram(None)
+
         self.result_text = scrolledtext.ScrolledText(
-            frame, height=12, wrap=tk.WORD, font=("Consolas", 11), state=tk.DISABLED
+            result_row, height=12, wrap=tk.WORD, font=("Consolas", 11), state=tk.DISABLED
         )
-        self.result_text.pack(fill=tk.BOTH, expand=True)
+        self.result_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     def _build_prompt_section(self, parent: ttk.Frame) -> None:
         frame = ttk.LabelFrame(parent, text="AI 解读提示词", style="Section.TLabelframe", padding=8)
@@ -234,6 +244,7 @@ class BaguaGuiApp(tk.Tk):
         btn_row.pack(fill=tk.X, pady=(8, 0))
         ttk.Button(btn_row, text="复制提示词", command=self._copy_prompt).pack(side=tk.LEFT)
         ttk.Button(btn_row, text="保存记录", command=self._save_record).pack(side=tk.LEFT, padx=(8, 0))
+        ttk.Button(btn_row, text="历史记录", command=self._show_history).pack(side=tk.LEFT, padx=(8, 0))
 
     def _on_method_changed(self) -> None:
         method = self.method_var.get()
@@ -328,6 +339,7 @@ class BaguaGuiApp(tk.Tk):
             ]
             self._set_text_widget(self.result_text, "\n".join(result_lines))
             self._set_text_widget(self.prompt_text, result.prompt)
+            self.hexagram_canvas.draw_hexagram(result.hexagram)
 
             self._persist_config_from_form()
             self.status_var.set("起卦完成")
@@ -340,10 +352,10 @@ class BaguaGuiApp(tk.Tk):
         if not text:
             messagebox.showinfo("提示", "暂无提示词可复制")
             return
-        self.clipboard_clear()
-        self.clipboard_append(text)
-        self.update()
-        self.status_var.set("已复制到剪贴板")
+        if copy_to_clipboard(text):
+            self.status_var.set("已复制到剪贴板")
+        else:
+            messagebox.showwarning("复制失败", "无法写入剪贴板，请手动选择文本复制")
 
     def _save_record(self) -> None:
         if self._last_result is None:
@@ -394,6 +406,89 @@ class BaguaGuiApp(tk.Tk):
             coin_mode=self.coin_mode_var.get(),
         )
         save_config(self._config)
+
+    def _show_history(self) -> None:
+        win = tk.Toplevel(self)
+        win.title("历史记录")
+        win.geometry("640x400")
+        win.transient(self)
+
+        records = list_records()
+        frame = ttk.Frame(win, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        listbox = tk.Listbox(frame, font=("Microsoft YaHei UI", 10))
+        listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scroll = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=listbox.yview)
+        scroll.pack(side=tk.LEFT, fill=tk.Y)
+        listbox.configure(yscrollcommand=scroll.set)
+
+        for i, rec in enumerate(records, start=1):
+            label = f"{i}. {rec.saved_at}  {rec.hexagram_name}  {rec.question or '（无问题）'}"
+            listbox.insert(tk.END, label)
+
+        if not records:
+            listbox.insert(tk.END, "（暂无记录）")
+
+        def _selected_index() -> int | None:
+            sel = listbox.curselection()
+            if not sel or not records:
+                return None
+            return sel[0]
+
+        def _view() -> None:
+            idx = _selected_index()
+            if idx is None:
+                return
+            data = load_record_json(records[idx].filename)
+            if not data:
+                messagebox.showerror("错误", "无法读取记录")
+                return
+            detail = tk.Toplevel(win)
+            detail.title(records[idx].filename)
+            detail.geometry("700x500")
+            text = scrolledtext.ScrolledText(detail, wrap=tk.WORD, font=("Microsoft YaHei UI", 10))
+            text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+            text.insert(tk.END, data.get("prompt", ""))
+            text.configure(state=tk.DISABLED)
+
+        def _load_prompt() -> None:
+            idx = _selected_index()
+            if idx is None:
+                return
+            data = load_record_json(records[idx].filename)
+            if not data:
+                messagebox.showerror("错误", "无法读取记录")
+                return
+            self._set_text_widget(self.prompt_text, data.get("prompt", ""))
+            self.status_var.set(f"已加载记录：{records[idx].filename}")
+            win.destroy()
+
+        def _delete() -> None:
+            idx = _selected_index()
+            if idx is None:
+                return
+            rec = records[idx]
+            if not messagebox.askyesno("确认删除", f"删除 {rec.filename}？"):
+                return
+            delete_record(rec.filename)
+            listbox.delete(0, tk.END)
+            records[:] = list_records()
+            for i, item in enumerate(records, start=1):
+                listbox.insert(
+                    tk.END,
+                    f"{i}. {item.saved_at}  {item.hexagram_name}  {item.question or '（无问题）'}",
+                )
+            if not records:
+                listbox.insert(tk.END, "（暂无记录）")
+            self.status_var.set(f"已删除：{rec.filename}")
+
+        btn_row = ttk.Frame(win, padding=10)
+        btn_row.pack(fill=tk.X)
+        ttk.Button(btn_row, text="查看", command=_view).pack(side=tk.LEFT)
+        ttk.Button(btn_row, text="加载提示词", command=_load_prompt).pack(side=tk.LEFT, padx=8)
+        ttk.Button(btn_row, text="删除", command=_delete).pack(side=tk.LEFT)
+        ttk.Button(btn_row, text="关闭", command=win.destroy).pack(side=tk.RIGHT)
 
     def _on_close(self) -> None:
         self._persist_config_from_form()

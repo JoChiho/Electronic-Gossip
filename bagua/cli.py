@@ -12,7 +12,10 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
-from bagua.config import CONFIG_PATH, load_config, save_config, save_record
+from bagua.args import parse_cli_args
+from bagua.config import CONFIG_PATH, load_config, save_config
+from bagua.headless import dispatch_headless
+from bagua.records import save_record
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
 from bagua.divination import coin_tosses_to_display, parse_coin_input, simulate_coin_toss
 from bagua.models import DivinationRecord, UserConfig, UserContext, YaoInfo
@@ -323,68 +326,80 @@ def display_prompt(prompt: str) -> None:
 # 主流程
 # ---------------------------------------------------------------------------
 
-def main() -> None:
-    try:
-        show_disclaimer()
-        ensure_runtime()
+def run_interactive() -> None:
+    show_disclaimer()
+    ensure_runtime()
 
-        config = load_config()
-        if not CONFIG_PATH.exists():
-            detected = detect_system_timezone_name()
-            config.timezone = detected
-            config.region_label = label_for_timezone(detected)
+    config = load_config()
+    if not CONFIG_PATH.exists():
+        detected = detect_system_timezone_name()
+        config.timezone = detected
+        config.region_label = label_for_timezone(detected)
 
-        ctx, config = setup_user_context(config)
-        method = select_method()
+    ctx, config = setup_user_context(config)
+    method = select_method()
 
-        coin_tosses, divination_dt, coin_mode = collect_divination_params(method, ctx)
+    coin_tosses, divination_dt, coin_mode = collect_divination_params(method, ctx)
 
-        if method == "time" and divination_dt is not None:
-            console.print(f"\n[dim]{format_datetime_with_tz(divination_dt, ctx.tz)}[/dim]")
+    if method == "time" and divination_dt is not None:
+        console.print(f"\n[dim]{format_datetime_with_tz(divination_dt, ctx.tz)}[/dim]")
 
-        result = perform_divination(
-            method,
-            ctx,
-            coin_tosses=coin_tosses,
-            divination_datetime=divination_dt,
-            coin_mode=coin_mode if method == "coin" else ctx.coin_mode,
+    result = perform_divination(
+        method,
+        ctx,
+        coin_tosses=coin_tosses,
+        divination_datetime=divination_dt,
+        coin_mode=coin_mode if method == "coin" else ctx.coin_mode,
+    )
+
+    if method == "time":
+        console.print(f"\n[dim]{result.method_desc}[/dim]")
+    elif method == "random":
+        console.print("\n[dim]已随机生成六爻[/dim]")
+
+    config.coin_mode = coin_mode if method == "coin" else ctx.coin_mode
+    config.question = ctx.question
+    config.bazi = ctx.bazi
+    config.birth_datetime = ctx.birth_datetime
+    config.timezone = ctx.tz.iana_name
+    config.region_label = ctx.tz.region_label
+    save_config(config)
+    console.print(f"\n[dim]用户偏好已保存至 {CONFIG_PATH}[/dim]")
+
+    display_hexagram(result.hexagram)
+    display_prompt(result.prompt)
+
+    console.print()
+    if console.input("是否保存本次占卜记录？[y/N]: ").strip().lower() in ("y", "yes"):
+        record = DivinationRecord(
+            question=ctx.question,
+            bazi=ctx.bazi,
+            birth_datetime=ctx.birth_datetime,
+            method=result.method_desc,
+            divination_time=result.divination_time,
+            timezone=ctx.tz.iana_name,
+            hexagram=result.hexagram,
+            prompt=result.prompt,
         )
+        path = save_record(record)
+        console.print(f"[green]已保存至 {path}[/green]")
 
-        if method == "time":
-            console.print(f"\n[dim]{result.method_desc}[/dim]")
-        elif method == "random":
-            console.print("\n[dim]已随机生成六爻[/dim]")
+    console.print()
+    console.print(Rule(style="dim"))
+    console.print("[dim]感谢使用 bagua。愿君子以自强不息。[/dim]")
 
-        config.coin_mode = coin_mode if method == "coin" else ctx.coin_mode
-        config.question = ctx.question
-        config.bazi = ctx.bazi
-        config.birth_datetime = ctx.birth_datetime
-        config.timezone = ctx.tz.iana_name
-        config.region_label = ctx.tz.region_label
-        save_config(config)
-        console.print(f"\n[dim]用户偏好已保存至 {CONFIG_PATH}[/dim]")
 
-        display_hexagram(result.hexagram)
-        display_prompt(result.prompt)
-
-        console.print()
-        if console.input("是否保存本次占卜记录？[y/N]: ").strip().lower() in ("y", "yes"):
-            record = DivinationRecord(
-                question=ctx.question,
-                bazi=ctx.bazi,
-                birth_datetime=ctx.birth_datetime,
-                method=result.method_desc,
-                divination_time=result.divination_time,
-                timezone=ctx.tz.iana_name,
-                hexagram=result.hexagram,
-                prompt=result.prompt,
-            )
-            path = save_record(record)
-            console.print(f"[green]已保存至 {path}[/green]")
-
-        console.print()
-        console.print(Rule(style="dim"))
-        console.print("[dim]感谢使用 bagua。愿君子以自强不息。[/dim]")
+def main(argv: list[str] | None = None) -> int:
+    try:
+        args = parse_cli_args(argv)
+        if not args.interactive:
+            return dispatch_headless(args)
+        run_interactive()
+        return 0
     except KeyboardInterrupt:
         console.print("\n[dim]已取消。[/dim]")
-        sys.exit(0)
+        return 130
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

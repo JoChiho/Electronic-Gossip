@@ -112,6 +112,24 @@ Electronic-Gossip/
 pip install tzdata   # 手动补装
 ```
 
+### 非交互 CLI（快速摸鱼）
+
+```bash
+# 随机起卦，只输出提示词
+bagua --method random --question "工作运势" --output prompt
+
+# 自动保存记录 + 复制到剪贴板
+bagua -m random -q "要不要跳槽" --save --copy
+
+# 时间起卦
+bagua -m time --at "2026-06-24 14:30" -q "项目进展"
+
+# 历史记录
+bagua --list-records
+bagua --show-record 1
+bagua --delete-record bagua_20260624_120000.json
+```
+
 ### 配置示例
 
 ```json
@@ -134,7 +152,17 @@ pyinstaller --onefile --name bagua --console bagua.py
 
 ## 问题记录与版本历史
 
-### v0.4.0（当前）
+### v0.5.0（当前）
+
+| 变更 | 说明 |
+|------|------|
+| CLI 非交互参数 | `--method` / `-q` / `--save` / `--copy` 等 |
+| 历史记录管理 | `--list-records` / `--show-record` / `--delete-record` |
+| GUI 历史记录 | 历史窗口：查看、加载提示词、删除 |
+| GUI 卦象 Canvas | 六爻图形化绘制 |
+| 剪贴板优化 | `clipboard.py` 多平台回退 |
+
+### v0.4.0
 
 | 变更 | 说明 |
 |------|------|
@@ -175,7 +203,7 @@ pyinstaller --onefile --name bagua --console bagua.py
 | 0 | 目录清理 + 工作流程文档 | 基本完成 |
 | 1 | 架构重构（service 层，为 GUI 做准备） | ✅ 已完成 |
 | 2 | Tkinter 简易 GUI | ✅ 已完成 |
-| 3 | CLI 参数、历史记录、体验优化 | 待开始 |
+| 3 | CLI 参数、历史记录、体验优化 | ✅ 已完成 |
 | 4 | 八字排盘、农历起卦 | 待开始 |
 | 5 | PyInstaller 双版本打包发布 | 待开始 |
 
