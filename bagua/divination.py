@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from bagua.data import METHOD_LABELS, TRIGRAMS
+from bagua.lunar_util import CalendarMode, resolve_time_divination_components
 
 if TYPE_CHECKING:
     from _random import Random
@@ -99,9 +100,17 @@ def _lines_from_trigrams(lower: dict, upper: dict, changing_line: int | None = N
     return values
 
 
-def divinate_by_time(dt: datetime) -> tuple[list[int], str]:
-    year, month, day = dt.year, dt.month, dt.day
-    hour = (dt.hour // 2) % 12 + 1
+def divinate_by_time(
+    dt: datetime,
+    *,
+    calendar_mode: CalendarMode = "solar",
+    lunar_input: str | None = None,
+) -> tuple[list[int], str]:
+    year, month, day, hour, cal_prefix = resolve_time_divination_components(
+        dt,
+        calendar_mode=calendar_mode,
+        lunar_input=lunar_input,
+    )
 
     upper_num = _meihua_trigram_number(year + month + day)
     lower_num = _meihua_trigram_number(year + month + day + hour)
@@ -111,9 +120,11 @@ def divinate_by_time(dt: datetime) -> tuple[list[int], str]:
     upper = _trigram_by_number(upper_num)
     values = _lines_from_trigrams(lower, upper, changing)
 
+    mode_label = "农历" if calendar_mode == "lunar" else "公历"
     detail = (
-        f"年{year} + 月{month} + 日{day} = {year + month + day} → 上卦 {upper['name']}; "
-        f"加时辰{hour} = {year + month + day + hour} → 下卦 {lower['name']}，动爻第{changing}爻"
+        f"{cal_prefix}；{mode_label}梅花易数："
+        f"年{year}+月{month}+日{day}={year + month + day}→上卦{upper['name']}；"
+        f"加时{hour}={year + month + day + hour}→下卦{lower['name']}，动爻第{changing}爻"
     )
     return values, f"{METHOD_LABELS['time']}（{detail}）"
 

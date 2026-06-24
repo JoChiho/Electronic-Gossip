@@ -6,6 +6,7 @@ import random
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from bagua.bazi import maybe_auto_bazi
 from bagua.divination import divinate_by_random, divinate_by_time, divinate_coin
 from bagua.hexagram import build_hexagram
 from bagua.models import DivinationMethod, DivinationResult, UserContext
@@ -23,6 +24,7 @@ def perform_divination(
     coin_tosses: list[list[int]] | None = None,
     divination_datetime: datetime | None = None,
     coin_mode: str = "manual",
+    auto_bazi: bool = True,
     rng: Random | None = None,
 ) -> DivinationResult:
     """
@@ -37,6 +39,25 @@ def perform_divination(
         rng: 可选随机数生成器（便于测试）
     """
     dt_now = now_in_timezone(context.tz)
+    prompt_context = context
+    if auto_bazi and not context.bazi.strip() and context.birth_datetime.strip():
+        bazi = maybe_auto_bazi(
+            context.birth_datetime,
+            context.bazi,
+            context.tz,
+            auto=True,
+        )
+        if bazi.strip():
+            prompt_context = UserContext(
+                question=context.question,
+                bazi=bazi,
+                birth_datetime=context.birth_datetime,
+                tz=context.tz,
+                coin_mode=context.coin_mode,
+                calendar_mode=context.calendar_mode,
+                lunar_input=context.lunar_input,
+                include_hexagram_texts=context.include_hexagram_texts,
+            )
 
     if method == "coin":
         values, method_desc = divinate_coin(
@@ -47,8 +68,14 @@ def perform_divination(
         divination_time = format_datetime_with_tz(dt_now, context.tz)
     elif method == "time":
         dt = divination_datetime or dt_now
-        values, method_desc = divinate_by_time(dt)
+        values, method_desc = divinate_by_time(
+            dt,
+            calendar_mode=context.calendar_mode,
+            lunar_input=context.lunar_input,
+        )
         divination_time = format_datetime_with_tz(dt, context.tz)
+        if context.calendar_mode == "lunar" and context.lunar_input:
+            divination_time = f"{divination_time}（农历输入：{context.lunar_input}）"
     elif method == "random":
         values, method_desc = divinate_by_random(rng)
         divination_time = format_datetime_with_tz(dt_now, context.tz)
@@ -56,7 +83,7 @@ def perform_divination(
         raise ValueError(f"未知起卦方式: {method}")
 
     hexagram = build_hexagram(values)
-    prompt = generate_ai_prompt(context, method_desc, divination_time, hexagram)
+    prompt = generate_ai_prompt(prompt_context, method_desc, divination_time, hexagram)
 
     return DivinationResult(
         yao_values=values,

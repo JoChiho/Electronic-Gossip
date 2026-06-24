@@ -16,6 +16,10 @@ def test_user_config_roundtrip(tmp_path, monkeypatch):
         bazi="甲子",
         birth_datetime="1990-01-01 08:00",
         coin_mode="auto",
+        last_method="time",
+        use_current_time=False,
+        time_input="2026-06-24 14:30",
+        coin_tosses=[["1", "2", "1"], ["2", "2", "2"], ["1", "1", "1"], ["1", "2", "2"], ["2", "1", "1"], ["1", "1", "2"]],
     )
     save_config(cfg)
 
@@ -23,3 +27,7 @@ def test_user_config_roundtrip(tmp_path, monkeypatch):
     assert loaded.timezone == "Asia/Tokyo"
     assert loaded.question == "测试问题"
     assert loaded.coin_mode == "auto"
+    assert loaded.last_method == "time"
+    assert loaded.use_current_time is False
+    assert loaded.time_input == "2026-06-24 14:30"
+    assert loaded.coin_tosses[0] == ["1", "2", "1"]

@@ -20,6 +20,16 @@ class UserConfig:
     bazi: str = ""
     birth_datetime: str = ""
     coin_mode: str = "manual"
+    auto_copy_prompt: bool = True
+    calendar_mode: str = "solar"
+    auto_bazi: bool = True
+    include_hexagram_texts: bool = True
+    last_method: str = "coin"
+    use_current_time: bool = True
+    time_input: str = ""
+    coin_tosses: list[list[str]] = field(
+        default_factory=lambda: [["1", "1", "1"] for _ in range(6)]
+    )
 
 
 @dataclass
@@ -29,6 +39,9 @@ class UserContext:
     birth_datetime: str
     tz: TimezoneInfo
     coin_mode: str
+    calendar_mode: str = "solar"
+    lunar_input: str | None = None
+    include_hexagram_texts: bool = True
 
 
 @dataclass

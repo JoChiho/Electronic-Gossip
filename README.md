@@ -11,6 +11,9 @@
 - **AI 提示词**：结构化输出，可直接复制到大模型
 - **本地持久化**：时区、出生时间、八字、默认问题自动保存
 - **跨平台时区**：Windows 自动安装 `tzdata`，缺失时回退固定 UTC 偏移
+- **八字排盘**：填写出生时间可自动排八字（lunar-python）
+- **农历起卦**：时间起卦支持公历 / 农历梅花易数模式
+- **卦辞摘要**：AI 提示词附带六十四卦卦辞要点
 
 ## 快速开始
 
@@ -126,8 +129,11 @@ bagua --method random --question "工作运势" --output prompt
 # 自动保存记录 + 复制到剪贴板
 bagua -m random -q "要不要跳槽" --save --copy
 
-# 时间起卦
+# 时间起卦（公历）
 bagua -m time --at "2026-06-24 14:30" -q "项目进展"
+
+# 农历时间起卦
+bagua -m time --calendar lunar --lunar-at "2026-05-10 14:30" -q "项目进展"
 
 # 历史记录
 bagua --list-records
@@ -157,7 +163,16 @@ pyinstaller --onefile --name bagua --console bagua.py
 
 ## 问题记录与版本历史
 
-### v0.5.0（当前）
+### v0.6.0（当前）
+
+| 变更 | 说明 |
+|------|------|
+| 八字自动排盘 | 出生时间 → 八字；CLI/GUI 均支持 |
+| 农历时间起卦 | `--calendar lunar` / GUI 历法切换 |
+| 卦辞摘要 | AI 提示词附带本卦/之卦卦辞要点 |
+| 夏令时提示 | tzdata 可用时自动 DST；回退模式明确提示 |
+
+### v0.5.0
 
 | 变更 | 说明 |
 |------|------|
@@ -195,9 +210,9 @@ pyinstaller --onefile --name bagua --console bagua.py
 
 ### 已知限制
 
-- 时间起卦使用公历数字简化，未接入农历
-- 八字需手动填写，未自动排盘
-- 固定偏移回退不支持夏令时
+- 农历起卦为数字简化版，未接入节气换月
+- 八字排盘不含大运流年
+- 固定偏移回退不支持夏令时（请安装 tzdata）
 
 ### 后续开发
 
@@ -209,7 +224,7 @@ pyinstaller --onefile --name bagua --console bagua.py
 | 1 | 架构重构（service 层，为 GUI 做准备） | ✅ 已完成 |
 | 2 | Tkinter 简易 GUI | ✅ 已完成 |
 | 3 | CLI 参数、历史记录、体验优化 | ✅ 已完成 |
-| 4 | 八字排盘、农历起卦 | 待开始 |
+| 4 | 八字排盘、农历起卦 | ✅ 已完成 |
 | 5 | PyInstaller 双版本打包发布 | 待开始 |
 
 ## License

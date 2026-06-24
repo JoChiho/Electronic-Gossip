@@ -24,6 +24,9 @@ class CliArgs:
     list_records: bool = False
     show_record: str | None = None
     delete_record: str | None = None
+    calendar: str | None = None
+    lunar_at: str | None = None
+    auto_bazi: bool | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,7 +51,27 @@ def build_parser() -> argparse.ArgumentParser:
         default="auto",
         help="铜钱法模式（非交互默认 auto）",
     )
-    parser.add_argument("--at", metavar="TIME", help="时间起卦指定时刻，如 2026-06-24 14:30")
+    parser.add_argument("--at", metavar="TIME", help="时间起卦指定时刻（公历），如 2026-06-24 14:30")
+    parser.add_argument(
+        "--calendar",
+        choices=["solar", "lunar"],
+        help="时间起卦历法：solar 公历（默认）/ lunar 农历",
+    )
+    parser.add_argument(
+        "--lunar-at",
+        metavar="TIME",
+        help="农历起卦时刻，如 2026-05-10 14:30（需配合 --calendar lunar）",
+    )
+    parser.add_argument(
+        "--auto-bazi",
+        action="store_true",
+        help="从出生时间自动排八字（默认开启，可用 --no-auto-bazi 关闭）",
+    )
+    parser.add_argument(
+        "--no-auto-bazi",
+        action="store_true",
+        help="关闭自动排八字",
+    )
     parser.add_argument("--save", action="store_true", help="自动保存占卜记录")
     parser.add_argument(
         "--output",
@@ -94,4 +117,7 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         list_records=ns.list_records,
         show_record=ns.show_record,
         delete_record=ns.delete_record,
+        calendar=ns.calendar,
+        lunar_at=ns.lunar_at,
+        auto_bazi=False if ns.no_auto_bazi else (True if ns.auto_bazi else None),
     )

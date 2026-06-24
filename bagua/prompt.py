@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bagua.hexagram_texts import get_hexagram_summary
 from bagua.models import HexagramInfo, UserContext
 from bagua.timezone import TimezoneInfo, format_utc_offset
 
@@ -14,7 +15,16 @@ def _format_birth_block(birth_datetime: str, tz: TimezoneInfo) -> str:
     return f"{birth_datetime}（{tz.region_label}, {tz.iana_name}, {offset}{fallback}）"
 
 
-def format_hexagram_block(hexagram: HexagramInfo, label: str) -> str:
+def _hexagram_text_line(hexagram: HexagramInfo, *, include_texts: bool) -> str | None:
+    if not include_texts:
+        return None
+    summary = get_hexagram_summary(hexagram.name)
+    if not summary:
+        return None
+    return f"  卦辞摘要：{summary}"
+
+
+def format_hexagram_block(hexagram: HexagramInfo, label: str, *, include_texts: bool = False) -> str:
     upper, lower = hexagram.upper_trigram, hexagram.lower_trigram
     lines = [
         f"【{label}】{hexagram.name}",
@@ -29,6 +39,9 @@ def format_hexagram_block(hexagram: HexagramInfo, label: str) -> str:
         lines.append(f"    {yao.position_name}：{graphic}  爻值{yao.value}（{yao.label}）")
     if hexagram.changing_positions:
         lines.append(f"  变爻位置：第 {', '.join(str(p) for p in hexagram.changing_positions)} 爻")
+    text_line = _hexagram_text_line(hexagram, include_texts=include_texts)
+    if text_line:
+        lines.append(text_line)
     return "\n".join(lines)
 
 
@@ -62,13 +75,17 @@ def generate_ai_prompt(
         "【生辰八字】",
         bazi_text,
         "",
-        format_hexagram_block(hexagram, "本卦"),
+        format_hexagram_block(hexagram, "本卦", include_texts=ctx.include_hexagram_texts),
     ]
 
     if hexagram.has_changing and hexagram.changed_hexagram:
         sections += [
             "",
-            format_hexagram_block(hexagram.changed_hexagram, "之卦（变卦）"),
+            format_hexagram_block(
+                hexagram.changed_hexagram,
+                "之卦（变卦）",
+                include_texts=ctx.include_hexagram_texts,
+            ),
             "",
             "【解读要求】\n"
             "1. 先阐释本卦卦义及上下卦关系，结合六爻（尤其变爻）分析当前态势。\n"

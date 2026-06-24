@@ -13,8 +13,10 @@ from rich.table import Table
 from rich.text import Text
 
 from bagua.args import parse_cli_args
+from bagua.bazi import compute_bazi
 from bagua.cli_guide import (
     METHOD_LABELS,
+    show_calendar_mode_guide,
     show_coin_value_legend,
     show_completion_guide,
     show_method_guide,
@@ -25,6 +27,8 @@ from bagua.cli_guide import (
     show_time_guide,
     show_user_fields_help,
 )
+from bagua.lunar_util import is_lunar_available, parse_lunar_datetime_input
+from bagua.clipboard import copy_to_clipboard
 from bagua.config import CONFIG_PATH, load_config, save_config
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
 from bagua.divination import coin_tosses_to_display, parse_coin_input, simulate_coin_toss
@@ -45,7 +49,7 @@ from bagua.timezone import (
     validate_timezone_name,
 )
 
-console = Console()
+console = Console(soft_wrap=True)
 
 
 # ---------------------------------------------------------------------------
@@ -54,11 +58,15 @@ console = Console()
 
 def ensure_runtime() -> None:
     if is_tzdata_available():
+        console.print(
+            "[dim]时区：已启用 IANA 数据库，支持夏令时自动换算。[/dim]"
+        )
         return
     console.print(
         Panel(
             "[yellow]未检测到 IANA 时区数据库（tzdata）。[/yellow]\n"
-            "程序将使用预设地区的[bold]固定 UTC 偏移[/bold]作为回退，可正常运行。\n\n"
+            "程序将使用预设地区的[bold]固定 UTC 偏移[/bold]作为回退，可正常运行。\n"
+            "[yellow]固定偏移不支持夏令时切换。[/yellow]\n\n"
             "建议安装完整时区支持：\n"
             "  [cyan]pip install tzdata[/cyan]\n"
             "或重新安装依赖：\n"
@@ -149,6 +157,8 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
                     birth_datetime=config.birth_datetime,
                     tz=tz,
                     coin_mode=config.coin_mode,
+                    calendar_mode=config.calendar_mode,
+                    include_hexagram_texts=config.include_hexagram_texts,
                 ),
                 config,
             )
@@ -167,6 +177,11 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
         "可选 · 格式 1990-01-01 08:00",
     )
     config.bazi = _prompt_with_default("生辰八字", config.bazi, "可选 · 如 庚午年 辛巳月 甲子日")
+    if config.auto_bazi and not config.bazi.strip() and config.birth_datetime.strip():
+        computed = compute_bazi(config.birth_datetime, tz)
+        if computed:
+            config.bazi = computed
+            console.print(f"[green]✓[/green] 已自动排八字：{computed}")
     config.question = _prompt_with_default("占卜问题", config.question, "建议填写 · 如「近期是否该跳槽」")
 
     console.print("[green]✓[/green] 个人信息已确认")
@@ -177,6 +192,8 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
             birth_datetime=config.birth_datetime,
             tz=tz,
             coin_mode=config.coin_mode,
+            calendar_mode=config.calendar_mode,
+            include_hexagram_texts=config.include_hexagram_texts,
         ),
         config,
     )
@@ -255,19 +272,41 @@ def collect_coin_tosses(coin_mode: str) -> tuple[list[list[int]], str]:
     return tosses, mode
 
 
+def _select_calendar_mode(default: str) -> str:
+    if not is_lunar_available():
+        console.print("[dim]农历功能未安装（pip install lunar-python），将使用公历起卦[/dim]")
+        return "solar"
+    show_calendar_mode_guide(console)
+    default_label = "农历" if default == "lunar" else "公历"
+    console.print(f"  [dim]直接回车 = 沿用上次：{default_label}[/dim]\n")
+    mapping = {"1": "solar", "2": "lunar", "": default}
+    while True:
+        choice = console.input("历法选择 [1/2]: ").strip()
+        if choice in mapping:
+            label = "公历起卦" if mapping[choice] == "solar" else "农历起卦"
+            console.print(f"[green]✓[/green] {label}")
+            return mapping[choice]
+        console.print("[red]请输入 1、2，或直接回车。[/red]")
+
+
 def collect_divination_params(
     method: str,
     ctx: UserContext,
-) -> tuple[list[list[int]] | None, object | None, str]:
+    config: UserConfig,
+) -> tuple[list[list[int]] | None, object | None, str, UserContext]:
     show_step(console, 3, "起卦操作")
 
     coin_tosses: list[list[int]] | None = None
     divination_datetime = None
     coin_mode = ctx.coin_mode
+    lunar_input: str | None = None
+    calendar_mode = ctx.calendar_mode
 
     if method == "coin":
         coin_tosses, coin_mode = collect_coin_tosses(ctx.coin_mode)
     elif method == "time":
+        calendar_mode = _select_calendar_mode(config.calendar_mode)
+        config.calendar_mode = calendar_mode
         dt_now = now_in_timezone(ctx.tz)
         show_time_guide(console, ctx.tz.region_label, format_datetime_with_tz(dt_now, ctx.tz))
         console.print()
@@ -275,18 +314,38 @@ def collect_divination_params(
             divination_datetime = dt_now
             console.print("[green]✓[/green] 将使用当前时间")
         else:
-            raw = console.input("请输入时间（如 2026-06-24 14:30）: ").strip()
-            divination_datetime = parse_datetime_input(raw, ctx.tz)
-            if divination_datetime is None:
-                console.print("[yellow]时间格式无效，已自动改用当前时间[/yellow]")
-                divination_datetime = dt_now
+            if calendar_mode == "lunar":
+                raw = console.input("请输入农历时间（如 2026-05-10 14:30）: ").strip()
+                if parse_lunar_datetime_input(raw) is None:
+                    console.print("[yellow]农历格式无效，已自动改用当前时间[/yellow]")
+                    divination_datetime = dt_now
+                else:
+                    lunar_input = raw
+                    divination_datetime = dt_now
+                    console.print(f"[green]✓[/green] 将使用农历输入：{raw}")
             else:
-                console.print(f"[green]✓[/green] 将使用 {format_datetime_with_tz(divination_datetime, ctx.tz)}")
+                raw = console.input("请输入公历时间（如 2026-06-24 14:30）: ").strip()
+                divination_datetime = parse_datetime_input(raw, ctx.tz)
+                if divination_datetime is None:
+                    console.print("[yellow]时间格式无效，已自动改用当前时间[/yellow]")
+                    divination_datetime = dt_now
+                else:
+                    console.print(f"[green]✓[/green] 将使用 {format_datetime_with_tz(divination_datetime, ctx.tz)}")
     elif method == "random":
         show_random_guide(console)
         console.print("[green]✓[/green] 准备随机起卦")
 
-    return coin_tosses, divination_datetime, coin_mode
+    updated_ctx = UserContext(
+        question=ctx.question,
+        bazi=ctx.bazi,
+        birth_datetime=ctx.birth_datetime,
+        tz=ctx.tz,
+        coin_mode=coin_mode,
+        calendar_mode=calendar_mode,
+        lunar_input=lunar_input,
+        include_hexagram_texts=ctx.include_hexagram_texts,
+    )
+    return coin_tosses, divination_datetime, coin_mode, updated_ctx
 
 
 # ---------------------------------------------------------------------------
@@ -341,15 +400,27 @@ def display_hexagram(hexagram: HexagramInfo, title: str = "卦象") -> None:
         )
 
 
-def display_prompt(prompt: str) -> None:
+def display_prompt(prompt: str, *, auto_copy: bool = True) -> bool:
+    """展示提示词，并按需自动复制到剪贴板。返回是否复制成功。"""
     console.print()
     console.print(Rule("[bold green]步骤 4/4 · AI 解读提示词[/bold green]", style="green"))
-    console.print("[dim]用鼠标拖选下方文本 → Ctrl+C 复制 → 粘贴到大模型[/dim]")
     console.print()
-    border = "═" * 42
+    border = "─" * 40
     console.print(f"[dim]{border}[/dim]")
     console.print(prompt)
     console.print(f"[dim]{border}[/dim]")
+    console.print()
+
+    if not auto_copy:
+        console.print("[dim]提示：可手动选中上方文本复制[/dim]")
+        return False
+
+    if copy_to_clipboard(prompt):
+        console.print("[bold green]✓ 已自动复制到剪贴板[/bold green]  [dim]可直接 Ctrl+V 粘贴到大模型[/dim]")
+        return True
+
+    console.print("[yellow]自动复制失败[/yellow]  [dim]请手动选中上方文本，Ctrl+C 复制[/dim]")
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -372,7 +443,7 @@ def run_interactive() -> None:
     ctx, config = setup_user_context(config)
     method = select_method()
 
-    coin_tosses, divination_dt, coin_mode = collect_divination_params(method, ctx)
+    coin_tosses, divination_dt, coin_mode, ctx = collect_divination_params(method, ctx, config)
 
     show_pre_result_summary(
         console,
@@ -387,6 +458,7 @@ def run_interactive() -> None:
         coin_tosses=coin_tosses,
         divination_datetime=divination_dt,
         coin_mode=coin_mode if method == "coin" else ctx.coin_mode,
+        auto_bazi=config.auto_bazi,
     )
 
     if method == "time":
@@ -403,8 +475,8 @@ def run_interactive() -> None:
 
     show_step(console, 4, "查看结果")
     display_hexagram(result.hexagram)
-    display_prompt(result.prompt)
-    show_completion_guide(console)
+    copied = display_prompt(result.prompt, auto_copy=config.auto_copy_prompt)
+    show_completion_guide(console, auto_copied=copied)
 
     console.print()
     console.print("[dim]是否保存本次占卜？输入 y 保存，直接回车跳过[/dim]")

@@ -25,6 +25,7 @@ def _config_to_context(config: UserConfig, args: CliArgs) -> UserContext:
     if config.timezone == tz_name:
         region = config.region_label
     tz = get_timezone(tz_name, region)
+    calendar_mode = args.calendar or config.calendar_mode
     return UserContext(
         question=args.question if args.question is not None else config.question,
         bazi=args.bazi if args.bazi is not None else config.bazi,
@@ -33,6 +34,9 @@ def _config_to_context(config: UserConfig, args: CliArgs) -> UserContext:
         ),
         tz=tz,
         coin_mode=args.coin_mode,
+        calendar_mode=calendar_mode,
+        lunar_input=args.lunar_at,
+        include_hexagram_texts=config.include_hexagram_texts,
     )
 
 
@@ -44,6 +48,10 @@ def _update_config_from_args(config: UserConfig, args: CliArgs, ctx: UserContext
     config.region_label = ctx.tz.region_label
     if args.method == "coin":
         config.coin_mode = args.coin_mode
+    if args.calendar:
+        config.calendar_mode = args.calendar
+    if args.auto_bazi is not None:
+        config.auto_bazi = args.auto_bazi
     return config
 
 
@@ -107,18 +115,27 @@ def run_headless_divination(args: CliArgs) -> int:
     ctx = _config_to_context(config, args)
 
     divination_dt = None
-    if args.method == "time" and args.at:
-        divination_dt = parse_datetime_input(args.at, ctx.tz)
-        if divination_dt is None:
-            console.print(f"[red]时间格式无效：{args.at}[/red]")
-            return 1
+    if args.method == "time":
+        if ctx.calendar_mode == "lunar" and args.lunar_at:
+            from bagua.lunar_util import parse_lunar_datetime_input
 
+            if parse_lunar_datetime_input(args.lunar_at) is None:
+                console.print(f"[red]农历时间格式无效：{args.lunar_at}[/red]")
+                return 1
+        elif args.at:
+            divination_dt = parse_datetime_input(args.at, ctx.tz)
+            if divination_dt is None:
+                console.print(f"[red]时间格式无效：{args.at}[/red]")
+                return 1
+
+    auto_bazi = config.auto_bazi if args.auto_bazi is None else args.auto_bazi
     result = perform_divination(
         args.method,
         ctx,
         coin_tosses=None,
         divination_datetime=divination_dt,
         coin_mode=args.coin_mode,
+        auto_bazi=auto_bazi,
     )
 
     config = _update_config_from_args(config, args, ctx)

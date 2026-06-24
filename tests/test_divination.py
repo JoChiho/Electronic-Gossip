@@ -46,3 +46,14 @@ def test_divinate_by_time_known_case():
     values, desc = divinate_by_time(dt)
     assert len(values) == 6
     assert "坤" in desc
+
+
+def test_divinate_by_time_lunar_mode():
+    from datetime import datetime
+    from bagua.timezone import get_timezone
+
+    tz = get_timezone("Asia/Shanghai", "中国")
+    dt = datetime(2026, 6, 24, 14, 30, tzinfo=tz.tzinfo)
+    values, desc = divinate_by_time(dt, calendar_mode="lunar")
+    assert len(values) == 6
+    assert "农历" in desc

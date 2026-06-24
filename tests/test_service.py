@@ -50,3 +50,31 @@ def test_perform_divination_time():
     result = perform_divination("time", ctx, divination_datetime=dt)
     assert result.hexagram.name == "坤为地"
     assert "时间起卦" in result.method_desc
+
+
+def test_perform_divination_auto_bazi():
+    tz = get_timezone("Asia/Shanghai", "中国")
+    ctx = UserContext(
+        question="测试",
+        bazi="",
+        birth_datetime="1990-05-15 08:30",
+        tz=tz,
+        coin_mode="manual",
+    )
+    result = perform_divination("random", ctx, rng=random.Random(1), auto_bazi=True)
+    assert "庚午" in result.prompt
+
+
+def test_prompt_includes_hexagram_text():
+    tz = get_timezone("UTC", "UTC")
+    ctx = UserContext(
+        question="",
+        bazi="",
+        birth_datetime="",
+        tz=tz,
+        coin_mode="manual",
+        include_hexagram_texts=True,
+    )
+    dt = datetime(2026, 6, 24, 14, 30, tzinfo=tz.tzinfo)
+    result = perform_divination("time", ctx, divination_datetime=dt)
+    assert "卦辞摘要" in result.prompt
