@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 
+from bagua.cli_guide import ARGPARSE_EPILOG
+
 
 @dataclass
 class CliArgs:
@@ -28,6 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bagua",
         description="易经八卦占卜 CLI — 起卦并生成 AI 解读提示词",
+        epilog=ARGPARSE_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "-m", "--method",
