@@ -58,38 +58,37 @@ def perform_divination(
     """
     执行完整起卦流程并生成 AI 提示词。
 
-    Args:
-        method: 起卦方式 coin / time / random
-        context: 用户上下文（问题、八字、时区等）
-        coin_tosses: 铜钱法六爻投掷结果，每爻三个点数（2 或 3）
-        divination_datetime: 时间起卦指定时刻；None 则用当前时区时间
-        coin_mode: manual 需 coin_tosses；auto 自动模拟
-        rng: 可选随机数生成器（便于测试）
+    卦象由铜钱/时间/随机算法生成；八字仅写入提示词供 AI 参考，不参与演卦。
     """
-    dt_now = now_in_timezone(context.tz)
+    dt_now = now_in_timezone(context.divination_tz)
     prompt_context = context
+    bazi_note = ""
+
     if auto_bazi and not context.bazi.strip() and context.birth_datetime.strip():
-        bazi = maybe_auto_bazi(
+        bazi, bazi_note = maybe_auto_bazi(
             context.birth_datetime,
             context.bazi,
-            context.tz,
+            context.birth_tz,
             auto=True,
+            longitude=context.birth_longitude,
+            use_true_solar=context.use_true_solar_birth,
         )
         if bazi.strip():
             prompt_context = UserContext(
                 question=context.question,
                 bazi=bazi,
                 birth_datetime=context.birth_datetime,
-                tz=context.tz,
+                birth_tz=context.birth_tz,
+                divination_tz=context.divination_tz,
                 coin_mode=context.coin_mode,
                 calendar_mode=context.calendar_mode,
                 lunar_input=context.lunar_input,
                 include_hexagram_texts=context.include_hexagram_texts,
-                longitude=context.longitude,
-                use_true_solar=context.use_true_solar,
+                birth_longitude=context.birth_longitude,
+                divination_longitude=context.divination_longitude,
+                use_true_solar_birth=context.use_true_solar_birth,
+                use_true_solar_divination=context.use_true_solar_divination,
             )
-
-    time_prompt_note: str | None = None
 
     if method == "coin":
         values, method_desc = divinate_coin(
@@ -97,29 +96,29 @@ def perform_divination(
             coin_mode=coin_mode,
             rng=rng,
         )
-        divination_time = format_datetime_with_tz(dt_now, context.tz)
+        divination_time = format_datetime_with_tz(dt_now, context.divination_tz)
     elif method == "time":
         dt = divination_datetime or dt_now
         values, method_desc, resolved = divinate_by_time(
             dt,
             calendar_mode=context.calendar_mode,
             lunar_input=context.lunar_input,
-            tz=context.tz,
-            longitude=context.longitude,
-            use_true_solar=context.use_true_solar,
+            tz=context.divination_tz,
+            longitude=context.divination_longitude,
+            use_true_solar=context.use_true_solar_divination,
         )
         time_prompt_note = _build_time_prompt_note(resolved)
         divination_time = _format_divination_time_for_prompt(
             method=method,
             dt=dt,
-            tz=context.tz,
+            tz=context.divination_tz,
             calendar_mode=context.calendar_mode,
             lunar_input=context.lunar_input,
             resolved_note=time_prompt_note,
         )
     elif method == "random":
         values, method_desc = divinate_by_random(rng)
-        divination_time = format_datetime_with_tz(dt_now, context.tz)
+        divination_time = format_datetime_with_tz(dt_now, context.divination_tz)
     else:
         raise ValueError(f"未知起卦方式: {method}")
 
@@ -130,6 +129,7 @@ def perform_divination(
         divination_time,
         hexagram,
         time_uses_solar_term=context.calendar_mode == "solar",
+        bazi_true_solar_note=bazi_note,
     )
 
     return DivinationResult(

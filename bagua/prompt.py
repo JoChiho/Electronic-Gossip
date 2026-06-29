@@ -7,12 +7,20 @@ from bagua.models import HexagramInfo, UserContext
 from bagua.timezone import TimezoneInfo, format_utc_offset
 
 
-def _format_birth_block(birth_datetime: str, tz: TimezoneInfo) -> str:
+def _format_birth_block(
+    birth_datetime: str,
+    tz: TimezoneInfo,
+    *,
+    true_solar_note: str = "",
+) -> str:
     if not birth_datetime.strip():
         return "（未提供）"
     offset = format_utc_offset(tz.tzinfo)
     fallback = " [固定偏移回退]" if tz.using_fallback else ""
-    return f"{birth_datetime}（{tz.region_label}, {tz.iana_name}, {offset}{fallback}）"
+    base = f"{birth_datetime}（出生时区 {tz.region_label}, {tz.iana_name}, {offset}{fallback}）"
+    if true_solar_note:
+        return f"{base}\n  {true_solar_note}"
+    return base
 
 
 def _hexagram_text_line(hexagram: HexagramInfo, *, include_texts: bool) -> str | None:
@@ -52,10 +60,15 @@ def generate_ai_prompt(
     hexagram: HexagramInfo,
     *,
     time_uses_solar_term: bool = False,
+    bazi_true_solar_note: str = "",
 ) -> str:
     question_text = ctx.question.strip() or "（未指定具体问题，请做综合解读）"
     bazi_text = ctx.bazi.strip() or "（未提供）"
-    birth_text = _format_birth_block(ctx.birth_datetime, ctx.tz)
+    birth_text = _format_birth_block(
+        ctx.birth_datetime,
+        ctx.birth_tz,
+        true_solar_note=bazi_true_solar_note,
+    )
 
     sections = [
         "你是一位精通《易经》的学者，同时具备现代心理学与决策分析素养。",
@@ -100,7 +113,7 @@ def generate_ai_prompt(
             "【解读要求】\n"
             "1. 先阐释本卦卦义及上下卦关系，结合六爻（尤其变爻）分析当前态势。\n"
             "2. 若有之卦，说明事态发展趋势及变化方向。\n"
-            "3. 结合用户出生时间与八字信息（如有）辅助分析。\n"
+            "3. 结合用户出生时间与八字信息（如有）辅助分析（八字不参与卦象演算）。\n"
             "4. 针对用户问题给出明确、可执行的建议（工作、人际、决策等现代场景）。\n"
             "5. 语言简洁专业，避免空泛玄学，注重实际指导价值。\n"
             "6. 结尾用一两句话总结核心启示。",

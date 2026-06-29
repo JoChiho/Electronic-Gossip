@@ -30,6 +30,8 @@ class GuiFormsMixin:
     birth_var: tk.StringVar
     tz_display_var: tk.StringVar
     tz_combo: ttk.Combobox
+    div_tz_display_var: tk.StringVar
+    div_tz_combo: ttk.Combobox
     method_var: tk.StringVar
     coin_mode_var: tk.StringVar
     coin_frame: ttk.LabelFrame
@@ -70,7 +72,7 @@ class GuiFormsMixin:
             row=2, column=2, sticky=tk.W, padx=(8, 0)
         )
 
-        ttk.Label(frame, text="时区", style="Field.TLabel").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ttk.Label(frame, text="出生时区", style="Field.TLabel").grid(row=3, column=0, sticky=tk.W, pady=5)
         self.tz_display_var = tk.StringVar()
         self.tz_combo = ttk.Combobox(
             frame,
@@ -175,12 +177,31 @@ class GuiFormsMixin:
         )
         self.time_hint_label.grid(row=2, column=2, sticky=tk.W, padx=(8, 0))
 
+        ttk.Label(self.time_frame, text="起卦时区", style="Field.TLabel").grid(
+            row=3, column=0, sticky=tk.W, pady=(10, 0),
+        )
+        self.div_tz_display_var = tk.StringVar()
+        self.div_tz_combo = ttk.Combobox(
+            self.time_frame,
+            textvariable=self.div_tz_display_var,
+            values=[label for _, label in TIMEZONE_PRESETS],
+            state="readonly",
+            width=32,
+        )
+        self.div_tz_combo.grid(row=3, column=1, columnspan=2, sticky=tk.W, padx=(10, 0), pady=(10, 0))
+        ttk.Label(
+            self.time_frame,
+            text="可与出生地不同，如北京出生、东京起卦",
+            style="Muted.TLabel",
+        ).grid(row=4, column=1, columnspan=2, sticky=tk.W, padx=(10, 0))
+
     def _bind_autosave(self) -> None:
         for var in (
             self.question_var,
             self.bazi_var,
             self.birth_var,
             self.tz_display_var,
+            self.div_tz_display_var,
             self.method_var,
             self.coin_mode_var,
             self.calendar_var,
@@ -192,6 +213,7 @@ class GuiFormsMixin:
             for var in row:
                 var.trace_add("write", lambda *_: self._schedule_save())
         self.tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
+        self.div_tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
 
     def _schedule_save(self) -> None:
         if self._loading_form:
@@ -246,38 +268,59 @@ class GuiFormsMixin:
         if not birth:
             messagebox.showinfo("提示", "请先填写出生时间")
             return
-        iana, region = self._selected_timezone()
+        iana, region = self._selected_birth_timezone()
         tz = get_timezone(iana, region)
-        computed = compute_bazi(birth, tz)
+        computed, _note = compute_bazi(
+            birth,
+            tz,
+            longitude=self._config.birth_longitude,
+            use_true_solar=self._config.use_true_solar_birth,
+        )
         if not computed:
             messagebox.showwarning("排盘失败", "无法解析出生时间，请检查格式与时区")
             return
         self.bazi_var.set(computed)
         self.status_var.set("已自动排八字")
 
-    def _selected_timezone(self) -> tuple[str, str]:
-        label = self.tz_display_var.get()
+    def _timezone_from_label(self, label: str, fallback_iana: str, fallback_label: str) -> tuple[str, str]:
         for iana, preset_label in TIMEZONE_PRESETS:
             if preset_label == label:
                 return iana, preset_label
-        return self._config.timezone, self._config.region_label
+        return fallback_iana, fallback_label
+
+    def _selected_birth_timezone(self) -> tuple[str, str]:
+        return self._timezone_from_label(
+            self.tz_display_var.get(),
+            self._config.timezone,
+            self._config.region_label,
+        )
+
+    def _selected_divination_timezone(self) -> tuple[str, str]:
+        return self._timezone_from_label(
+            self.div_tz_display_var.get(),
+            self._config.divination_timezone or self._config.timezone,
+            self._config.divination_region_label or self._config.region_label,
+        )
 
     def _collect_coin_tosses_state(self) -> list[list[str]]:
         return [[v.get() for v in row] for row in self._coin_vars]
 
     def _build_context(self) -> UserContext:
-        iana, region = self._selected_timezone()
-        tz = get_timezone(iana, region)
+        birth_iana, birth_region = self._selected_birth_timezone()
+        div_iana, div_region = self._selected_divination_timezone()
         return UserContext(
             question=self.question_var.get().strip(),
             bazi=self.bazi_var.get().strip(),
             birth_datetime=self.birth_var.get().strip(),
-            tz=tz,
+            birth_tz=get_timezone(birth_iana, birth_region),
+            divination_tz=get_timezone(div_iana, div_region),
             coin_mode=self.coin_mode_var.get(),
             calendar_mode=self.calendar_var.get(),
             include_hexagram_texts=self._config.include_hexagram_texts,
-            longitude=self._config.longitude,
-            use_true_solar=self._config.use_true_solar,
+            birth_longitude=self._config.birth_longitude,
+            divination_longitude=self._config.divination_longitude,
+            use_true_solar_birth=self._config.use_true_solar_birth,
+            use_true_solar_divination=self._config.use_true_solar_divination,
         )
 
     def _collect_coin_tosses(self) -> list[list[int]] | None:
@@ -324,6 +367,12 @@ class GuiFormsMixin:
             else:
                 self.tz_display_var.set(TIMEZONE_PRESETS[0][1])
 
+            div_label = cfg.divination_region_label or cfg.region_label
+            if div_label in labels:
+                self.div_tz_display_var.set(div_label)
+            else:
+                self.div_tz_display_var.set(TIMEZONE_PRESETS[0][1])
+
             self._on_method_changed()
             self._on_use_now_changed()
             self._on_calendar_changed()
@@ -331,10 +380,13 @@ class GuiFormsMixin:
             self._loading_form = False
 
     def _persist_config_from_form(self) -> None:
-        iana, region = self._selected_timezone()
+        birth_iana, birth_region = self._selected_birth_timezone()
+        div_iana, div_region = self._selected_divination_timezone()
         self._config = UserConfig(
-            timezone=iana,
-            region_label=region,
+            timezone=birth_iana,
+            region_label=birth_region,
+            divination_timezone=div_iana,
+            divination_region_label=div_region,
             question=self.question_var.get().strip(),
             bazi=self.bazi_var.get().strip(),
             birth_datetime=self.birth_var.get().strip(),
@@ -347,7 +399,9 @@ class GuiFormsMixin:
             use_current_time=self.use_now_var.get(),
             time_input=self.time_input_var.get().strip(),
             coin_tosses=self._collect_coin_tosses_state(),
-            longitude=self._config.longitude,
-            use_true_solar=self._config.use_true_solar,
+            birth_longitude=self._config.birth_longitude,
+            divination_longitude=self._config.divination_longitude,
+            use_true_solar_birth=self._config.use_true_solar_birth,
+            use_true_solar_divination=self._config.use_true_solar_divination,
         )
         save_config(self._config)

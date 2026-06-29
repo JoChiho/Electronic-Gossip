@@ -16,6 +16,8 @@ CoinMode = Literal["manual", "auto"]
 class UserConfig:
     timezone: str = "Asia/Shanghai"
     region_label: str = "中国（北京时间 UTC+8）"
+    divination_timezone: str = ""
+    divination_region_label: str = ""
     question: str = ""
     bazi: str = ""
     birth_datetime: str = ""
@@ -30,8 +32,10 @@ class UserConfig:
     coin_tosses: list[list[str]] = field(
         default_factory=lambda: [["1", "1", "1"] for _ in range(6)]
     )
-    longitude: float | None = None
-    use_true_solar: bool = True
+    birth_longitude: float | None = None
+    divination_longitude: float | None = None
+    use_true_solar_birth: bool = True
+    use_true_solar_divination: bool = True
 
 
 @dataclass
@@ -39,13 +43,16 @@ class UserContext:
     question: str
     bazi: str
     birth_datetime: str
-    tz: TimezoneInfo
+    birth_tz: TimezoneInfo
+    divination_tz: TimezoneInfo
     coin_mode: str
     calendar_mode: str = "solar"
     lunar_input: str | None = None
     include_hexagram_texts: bool = True
-    longitude: float | None = None
-    use_true_solar: bool = True
+    birth_longitude: float | None = None
+    divination_longitude: float | None = None
+    use_true_solar_birth: bool = True
+    use_true_solar_divination: bool = True
 
 
 @dataclass

@@ -7,12 +7,12 @@ from rich.table import Table
 
 from bagua.args import CliArgs
 from bagua.clipboard import copy_to_clipboard
-from bagua.config import load_config, save_config
+from bagua.config import build_user_context, load_config, save_config
 from bagua.gui_display import format_hexagram_display
 from bagua.models import DivinationRecord, UserConfig, UserContext
 from bagua.records import delete_record, list_records, load_record_json, save_record
 from bagua.service import perform_divination
-from bagua.timezone import get_timezone, label_for_timezone, parse_datetime_input
+from bagua.timezone import label_for_timezone, parse_datetime_input
 from bagua.user_prefs import stored_coin_tosses_to_points
 
 console = Console()
@@ -20,29 +20,32 @@ stderr_console = Console(stderr=True)
 
 
 def _config_to_context(config: UserConfig, args: CliArgs) -> UserContext:
-    tz_name = args.timezone or config.timezone
-    region = label_for_timezone(tz_name)
-    if config.timezone == tz_name:
-        region = config.region_label
-    tz = get_timezone(tz_name, region)
+    if args.timezone:
+        config.timezone = args.timezone
+        config.region_label = label_for_timezone(args.timezone)
+    if getattr(args, "divination_timezone", None):
+        config.divination_timezone = args.divination_timezone
+        config.divination_region_label = label_for_timezone(args.divination_timezone)
+
     calendar_mode = args.calendar or config.calendar_mode
     lunar_input = args.lunar_at
     if lunar_input is None and calendar_mode == "lunar" and config.time_input:
         lunar_input = config.time_input
-    return UserContext(
-        question=args.question if args.question is not None else config.question,
-        bazi=args.bazi if args.bazi is not None else config.bazi,
-        birth_datetime=(
-            args.birth_datetime if args.birth_datetime is not None else config.birth_datetime
-        ),
-        tz=tz,
-        coin_mode=args.coin_mode or config.coin_mode,
-        calendar_mode=calendar_mode,
-        lunar_input=lunar_input,
-        include_hexagram_texts=config.include_hexagram_texts,
-        longitude=config.longitude,
-        use_true_solar=config.use_true_solar,
-    )
+
+    ctx = build_user_context(config, calendar_mode=calendar_mode, lunar_input=lunar_input)
+
+    overrides: dict = {}
+    if args.question is not None:
+        overrides["question"] = args.question
+    if args.bazi is not None:
+        overrides["bazi"] = args.bazi
+    if args.birth_datetime is not None:
+        overrides["birth_datetime"] = args.birth_datetime
+    if args.coin_mode:
+        overrides["coin_mode"] = args.coin_mode
+    if overrides:
+        ctx = UserContext(**{**ctx.__dict__, **overrides})
+    return ctx
 
 
 def _resolve_divination_datetime(
@@ -68,14 +71,14 @@ def _resolve_divination_datetime(
         raise ValueError("农历起卦需 --lunar-at 或在 config.json 中设置 time_input")
 
     if args.at:
-        dt = parse_datetime_input(args.at, ctx.tz)
+        dt = parse_datetime_input(args.at, ctx.divination_tz)
         if dt is None:
             raise ValueError(f"时间格式无效：{args.at}")
         return dt, None
     if config.use_current_time:
         return None, None
     if config.time_input:
-        dt = parse_datetime_input(config.time_input, ctx.tz)
+        dt = parse_datetime_input(config.time_input, ctx.divination_tz)
         if dt is None:
             raise ValueError(f"config 中 time_input 无效：{config.time_input}")
         return dt, None
@@ -111,8 +114,10 @@ def _update_config_from_args(
     config.question = ctx.question
     config.bazi = ctx.bazi
     config.birth_datetime = ctx.birth_datetime
-    config.timezone = ctx.tz.iana_name
-    config.region_label = ctx.tz.region_label
+    config.timezone = ctx.birth_tz.iana_name
+    config.region_label = ctx.birth_tz.region_label
+    config.divination_timezone = ctx.divination_tz.iana_name
+    config.divination_region_label = ctx.divination_tz.region_label
     if args.method:
         config.last_method = args.method
     if args.method == "coin" and args.coin_mode:
@@ -195,13 +200,16 @@ def run_headless_divination(args: CliArgs) -> int:
             question=ctx.question,
             bazi=ctx.bazi,
             birth_datetime=ctx.birth_datetime,
-            tz=ctx.tz,
+            birth_tz=ctx.birth_tz,
+            divination_tz=ctx.divination_tz,
             coin_mode=ctx.coin_mode,
             calendar_mode=ctx.calendar_mode,
             lunar_input=lunar_input,
             include_hexagram_texts=ctx.include_hexagram_texts,
-            longitude=ctx.longitude,
-            use_true_solar=ctx.use_true_solar,
+            birth_longitude=ctx.birth_longitude,
+            divination_longitude=ctx.divination_longitude,
+            use_true_solar_birth=ctx.use_true_solar_birth,
+            use_true_solar_divination=ctx.use_true_solar_divination,
         )
 
     auto_bazi = config.auto_bazi if args.auto_bazi is None else args.auto_bazi
@@ -244,7 +252,7 @@ def run_headless_divination(args: CliArgs) -> int:
                 birth_datetime=ctx.birth_datetime,
                 method=result.method_desc,
                 divination_time=result.divination_time,
-                timezone=ctx.tz.iana_name,
+                timezone=ctx.divination_tz.iana_name,
                 hexagram=result.hexagram,
                 prompt=result.prompt,
             )

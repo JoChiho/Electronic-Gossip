@@ -2,6 +2,18 @@
 
 本文件记录 bagua 各版本变更，格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.9.1] - 2026-06-29
+
+### Added
+
+- **出生时区**与**起卦时区**拆分（GUI 时间起卦区 / CLI 分步设置）
+- 出生经度 / 起卦经度分开配置；八字与起卦真太阳时独立开关
+- 八字排盘支持出生地真太阳时（仅影响八字，不参与卦象演算）
+
+### Changed
+
+- 旧版 `longitude` / `use_true_solar` 配置自动迁移为起卦字段
+
 ## [0.9.0] - 2026-06-29
 
 ### Added
@@ -87,6 +99,7 @@
 - 用户信息持久化至 `~/.bagua/config.json`
 - pytest + GitHub Actions CI
 
+[0.9.1]: https://github.com/example/bagua/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/example/bagua/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/example/bagua/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/example/bagua/compare/v0.7.0...v0.8.0

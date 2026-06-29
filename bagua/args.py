@@ -16,6 +16,7 @@ class CliArgs:
     bazi: str | None = None
     birth_datetime: str | None = None
     timezone: str | None = None
+    divination_timezone: str | None = None
     coin_mode: str | None = None
     at: str | None = None
     save_record: bool = False
@@ -45,7 +46,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("-q", "--question", help="占卜问题")
     parser.add_argument("--bazi", help="生辰八字")
     parser.add_argument("--birth-datetime", help="出生日期时间")
-    parser.add_argument("--timezone", help="IANA 时区名，如 Asia/Shanghai")
+    parser.add_argument("--timezone", help="出生时区 IANA 名，如 Asia/Shanghai")
+    parser.add_argument(
+        "--divination-timezone",
+        help="起卦时区 IANA 名（默认与 --timezone 或 config 相同）",
+    )
     parser.add_argument(
         "--coin-mode",
         choices=["manual", "auto"],
@@ -115,6 +120,7 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         bazi=ns.bazi,
         birth_datetime=ns.birth_datetime,
         timezone=ns.timezone,
+        divination_timezone=ns.divination_timezone,
         coin_mode=ns.coin_mode,
         no_copy=ns.no_copy,
         at=ns.at,

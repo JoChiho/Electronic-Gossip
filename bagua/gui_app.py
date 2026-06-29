@@ -209,7 +209,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                             return
                         lunar_input = raw
                     else:
-                        divination_dt = parse_datetime_input(raw, ctx.tz)
+                        divination_dt = parse_datetime_input(raw, ctx.divination_tz)
                         if divination_dt is None:
                             messagebox.showerror("输入错误", "公历时间格式无效，请使用如 2026-06-24 14:30")
                             return
@@ -218,13 +218,16 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                         question=ctx.question,
                         bazi=ctx.bazi,
                         birth_datetime=ctx.birth_datetime,
-                        tz=ctx.tz,
+                        birth_tz=ctx.birth_tz,
+                        divination_tz=ctx.divination_tz,
                         coin_mode=ctx.coin_mode,
                         calendar_mode=ctx.calendar_mode,
                         lunar_input=lunar_input,
                         include_hexagram_texts=ctx.include_hexagram_texts,
-                        longitude=ctx.longitude,
-                        use_true_solar=ctx.use_true_solar,
+                        birth_longitude=ctx.birth_longitude,
+                        divination_longitude=ctx.divination_longitude,
+                        use_true_solar_birth=ctx.use_true_solar_birth,
+                        use_true_solar_divination=ctx.use_true_solar_divination,
                     )
 
             result = perform_divination(
@@ -277,7 +280,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
             birth_datetime=ctx.birth_datetime,
             method=self._last_result.method_desc,
             divination_time=self._last_result.divination_time,
-            timezone=ctx.tz.iana_name,
+            timezone=ctx.divination_tz.iana_name,
             hexagram=self._last_result.hexagram,
             prompt=self._last_result.prompt,
         )

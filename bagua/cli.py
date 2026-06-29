@@ -27,7 +27,13 @@ from bagua.cli_guide import (
     show_user_fields_help,
 )
 from bagua.clipboard import copy_to_clipboard
-from bagua.config import CONFIG_PATH, load_config, save_config
+from bagua.config import (
+    CONFIG_PATH,
+    build_user_context,
+    get_divination_timezone,
+    load_config,
+    save_config,
+)
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
 from bagua.divination import coin_tosses_to_display, parse_coin_input, simulate_coin_toss
 from bagua.headless import dispatch_headless
@@ -138,12 +144,12 @@ def _prompt_with_default(label: str, default: str, hint: str = "") -> str:
 
 def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
     show_step(console, 1, "个人信息")
-    tz = get_timezone(config.timezone, config.region_label)
+    birth_tz = get_timezone(config.timezone, config.region_label)
 
     if CONFIG_PATH.exists() and any([config.question, config.bazi, config.birth_datetime]):
         console.print(
             Panel(
-                f"时区：{config.region_label} ({config.timezone})\n"
+                f"出生时区：{config.region_label} ({config.timezone})\n"
                 f"出生时间：{config.birth_datetime or '（未设置）'}\n"
                 f"生辰八字：{config.bazi or '（未设置）'}\n"
                 f"默认问题：{config.question or '（未设置）'}",
@@ -156,28 +162,17 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
         use_saved = console.input("使用已保存信息？[Y/n]: ").strip().lower()
         if use_saved in ("", "y", "yes"):
             console.print("[green]✓[/green] 已沿用保存的信息")
-            return (
-                UserContext(
-                    question=config.question,
-                    bazi=config.bazi,
-                    birth_datetime=config.birth_datetime,
-                    tz=tz,
-                    coin_mode=config.coin_mode,
-                    calendar_mode=config.calendar_mode,
-                    include_hexagram_texts=config.include_hexagram_texts,
-                    longitude=config.longitude,
-                    use_true_solar=config.use_true_solar,
-                ),
-                config,
-            )
+            return build_user_context(config), config
 
     show_user_fields_help(console)
 
-    if console.input(f"需要修改时区？当前 [bold]{config.region_label}[/bold] [y/N]: ").strip().lower() in ("y", "yes"):
+    if console.input(
+        f"需要修改出生时区？当前 [bold]{config.region_label}[/bold] [y/N]: ",
+    ).strip().lower() in ("y", "yes"):
         tz_name, region_label = select_timezone(config.timezone)
         config.timezone = tz_name
         config.region_label = region_label
-        tz = get_timezone(tz_name, region_label)
+        birth_tz = get_timezone(tz_name, region_label)
 
     config.birth_datetime = _prompt_with_default(
         "出生日期时间",
@@ -186,27 +181,21 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
     )
     config.bazi = _prompt_with_default("生辰八字", config.bazi, "可选 · 如 庚午年 辛巳月 甲子日")
     if config.auto_bazi and not config.bazi.strip() and config.birth_datetime.strip():
-        computed = compute_bazi(config.birth_datetime, tz)
+        computed, note = compute_bazi(
+            config.birth_datetime,
+            birth_tz,
+            longitude=config.birth_longitude,
+            use_true_solar=config.use_true_solar_birth,
+        )
         if computed:
             config.bazi = computed
             console.print(f"[green]✓[/green] 已自动排八字：{computed}")
+            if note:
+                console.print(f"[dim]{note}[/dim]")
     config.question = _prompt_with_default("占卜问题", config.question, "建议填写 · 如「近期是否该跳槽」")
 
     console.print("[green]✓[/green] 个人信息已确认")
-    return (
-        UserContext(
-            question=config.question,
-            bazi=config.bazi,
-            birth_datetime=config.birth_datetime,
-            tz=tz,
-            coin_mode=config.coin_mode,
-            calendar_mode=config.calendar_mode,
-            include_hexagram_texts=config.include_hexagram_texts,
-            longitude=config.longitude,
-            use_true_solar=config.use_true_solar,
-        ),
-        config,
-    )
+    return build_user_context(config), config
 
 
 def select_method(default: str = "coin") -> Literal["coin", "time", "random"]:
@@ -331,8 +320,16 @@ def collect_divination_params(
     elif method == "time":
         calendar_mode = _select_calendar_mode(config.calendar_mode)
         config.calendar_mode = calendar_mode
-        dt_now = now_in_timezone(ctx.tz)
-        show_time_guide(console, ctx.tz.region_label, format_datetime_with_tz(dt_now, ctx.tz))
+        div_tz = get_divination_timezone(config)
+        if console.input(
+            f"起卦时区当前 [bold]{div_tz.region_label}[/bold]，修改？[y/N]: ",
+        ).strip().lower() in ("y", "yes"):
+            tz_name, region_label = select_timezone(config.divination_timezone or config.timezone)
+            config.divination_timezone = tz_name
+            config.divination_region_label = region_label
+            div_tz = get_timezone(tz_name, region_label)
+        dt_now = now_in_timezone(div_tz)
+        show_time_guide(console, div_tz.region_label, format_datetime_with_tz(dt_now, div_tz))
         console.print()
         use_now_prompt = "使用当前时间起卦？[Y/n]: " if config.use_current_time else "使用当前时间起卦？[y/N]: "
         if config.use_current_time:
@@ -361,29 +358,28 @@ def collect_divination_params(
             else:
                 default_time = config.time_input or ""
                 raw = _prompt_with_default("公历起卦时间", default_time, "如 2026-06-24 14:30")
-                divination_datetime = parse_datetime_input(raw, ctx.tz)
+                divination_datetime = parse_datetime_input(raw, div_tz)
                 if divination_datetime is None:
                     console.print("[yellow]时间格式无效，已自动改用当前时间[/yellow]")
                     divination_datetime = dt_now
                     config.use_current_time = True
                 else:
                     config.time_input = raw
-                    console.print(f"[green]✓[/green] 将使用 {format_datetime_with_tz(divination_datetime, ctx.tz)}")
+                    console.print(
+                        f"[green]✓[/green] 将使用 {format_datetime_with_tz(divination_datetime, div_tz)}",
+                    )
     elif method == "random":
         show_random_guide(console)
         console.print("[green]✓[/green] 准备随机起卦")
 
-    updated_ctx = UserContext(
+    updated_ctx = build_user_context(
+        config,
         question=ctx.question,
         bazi=ctx.bazi,
         birth_datetime=ctx.birth_datetime,
-        tz=ctx.tz,
         coin_mode=coin_mode,
         calendar_mode=calendar_mode,
         lunar_input=lunar_input,
-        include_hexagram_texts=ctx.include_hexagram_texts,
-        longitude=ctx.longitude,
-        use_true_solar=ctx.use_true_solar,
     )
     return coin_tosses, divination_datetime, coin_mode, updated_ctx
 
@@ -489,7 +485,7 @@ def run_interactive() -> None:
         console,
         METHOD_LABELS[method],
         ctx.question,
-        ctx.tz.region_label,
+        ctx.divination_tz.region_label,
     )
 
     result = perform_divination(
@@ -509,8 +505,10 @@ def run_interactive() -> None:
     config.question = ctx.question
     config.bazi = ctx.bazi
     config.birth_datetime = ctx.birth_datetime
-    config.timezone = ctx.tz.iana_name
-    config.region_label = ctx.tz.region_label
+    config.timezone = ctx.birth_tz.iana_name
+    config.region_label = ctx.birth_tz.region_label
+    config.divination_timezone = ctx.divination_tz.iana_name
+    config.divination_region_label = ctx.divination_tz.region_label
     config.calendar_mode = ctx.calendar_mode
     save_config(config)
     console.print(f"\n[dim]偏好已保存至 {CONFIG_PATH}[/dim]")
@@ -529,7 +527,7 @@ def run_interactive() -> None:
             birth_datetime=ctx.birth_datetime,
             method=result.method_desc,
             divination_time=result.divination_time,
-            timezone=ctx.tz.iana_name,
+            timezone=ctx.divination_tz.iana_name,
             hexagram=result.hexagram,
             prompt=result.prompt,
         )
