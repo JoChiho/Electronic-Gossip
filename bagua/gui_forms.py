@@ -7,7 +7,7 @@ from tkinter import messagebox, ttk
 
 from bagua.bazi import compute_bazi
 from bagua.config import CONFIG_PATH, save_config
-from bagua.divination import tosses_to_yao_value
+from bagua.divination import parse_number_input, tosses_to_yao_value
 from bagua.locations import (
     LOCATION_CUSTOM,
     LOCATION_FOLLOW_TZ,
@@ -48,6 +48,10 @@ class GuiFormsMixin:
     coin_mode_var: tk.StringVar
     coin_frame: ttk.LabelFrame
     time_frame: ttk.LabelFrame
+    number_frame: ttk.LabelFrame
+    number_n1_var: tk.StringVar
+    number_n2_var: tk.StringVar
+    number_n3_var: tk.StringVar
     use_now_var: tk.BooleanVar
     calendar_var: tk.StringVar
     time_input_var: tk.StringVar
@@ -150,7 +154,12 @@ class GuiFormsMixin:
         frame = self._section(parent, "起卦方式")
 
         self.method_var = tk.StringVar(value="coin")
-        methods = [("coin", "铜钱法"), ("time", "时间起卦"), ("random", "随机起卦")]
+        methods = [
+            ("coin", "铜钱法"),
+            ("time", "时间起卦"),
+            ("random", "随机起卦"),
+            ("number", "数字起卦"),
+        ]
         method_row = ttk.Frame(frame, style="Card.TFrame")
         method_row.grid(row=0, column=0, columnspan=3, sticky=tk.W)
         for val, label in methods:
@@ -300,6 +309,34 @@ class GuiFormsMixin:
             style="Muted.TLabel",
         ).grid(row=9, column=1, columnspan=2, sticky=tk.W, padx=(10, 0))
 
+    def _build_number_section(self, parent: ttk.Frame) -> None:
+        self.number_frame = ttk.LabelFrame(
+            parent, text="  数字起卦（梅花报数）  ", style="Section.TLabelframe", padding=12
+        )
+        self.number_frame.pack(fill=tk.X, pady=(0, 8))
+
+        ttk.Label(
+            self.number_frame,
+            text="上卦＝第一数 mod 8，下卦＝第二数 mod 8；"
+            "两数时动爻＝(n1+n2) mod 6，三数时动爻＝第三数 mod 6（余 0 取 8/6）",
+            style="Muted.TLabel",
+            wraplength=360,
+        ).grid(row=0, column=0, columnspan=4, sticky=tk.W)
+
+        labels = ("第一数（上卦）", "第二数（下卦）", "第三数（动爻，可选）")
+        self.number_n1_var = tk.StringVar(value="3")
+        self.number_n2_var = tk.StringVar(value="8")
+        self.number_n3_var = tk.StringVar(value="5")
+        for col, (label, var) in enumerate(zip(labels, (
+            self.number_n1_var, self.number_n2_var, self.number_n3_var,
+        ))):
+            ttk.Label(self.number_frame, text=label, style="Field.TLabel").grid(
+                row=1, column=col, sticky=tk.W, padx=(0, 8), pady=(10, 4),
+            )
+            ttk.Entry(self.number_frame, textvariable=var, width=8).grid(
+                row=2, column=col, sticky=tk.W, padx=(0, 8),
+            )
+
     def _bind_autosave(self) -> None:
         for var in (
             self.question_var,
@@ -323,6 +360,8 @@ class GuiFormsMixin:
         for row in self._coin_vars:
             for var in row:
                 var.trace_add("write", lambda *_: self._schedule_save())
+        for var in (self.number_n1_var, self.number_n2_var, self.number_n3_var):
+            var.trace_add("write", lambda *_: self._schedule_save())
         self.tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
         self.div_tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
 
@@ -418,11 +457,14 @@ class GuiFormsMixin:
         method = self.method_var.get()
         self.coin_frame.pack_forget()
         self.time_frame.pack_forget()
+        self.number_frame.pack_forget()
         if method == "coin":
             self.coin_frame.pack(fill=tk.X, pady=(0, 4))
             self._on_coin_mode_changed()
         elif method == "time":
             self.time_frame.pack(fill=tk.X, pady=(0, 4))
+        elif method == "number":
+            self.number_frame.pack(fill=tk.X, pady=(0, 4))
         self._schedule_save()
 
     def _on_coin_mode_changed(self) -> None:
@@ -509,6 +551,31 @@ class GuiFormsMixin:
             use_true_solar_divination=self.use_true_solar_div_var.get(),
         )
 
+    def _collect_number_inputs(self) -> list[int] | None:
+        parts = [
+            self.number_n1_var.get().strip(),
+            self.number_n2_var.get().strip(),
+            self.number_n3_var.get().strip(),
+        ]
+        if not parts[0] or not parts[1]:
+            return None
+        raw = " ".join(p for p in parts if p)
+        return parse_number_input(raw)
+
+    def _load_number_inputs_from_config(self, cfg: UserConfig) -> None:
+        stored = cfg.number_inputs or ["3", "8", "5"]
+        values = (stored + ["", "", ""])[:3]
+        self.number_n1_var.set(values[0] or "3")
+        self.number_n2_var.set(values[1] or "8")
+        self.number_n3_var.set(values[2])
+
+    def _collect_number_inputs_state(self) -> list[str]:
+        return [
+            self.number_n1_var.get().strip(),
+            self.number_n2_var.get().strip(),
+            self.number_n3_var.get().strip(),
+        ]
+
     def _collect_coin_tosses(self) -> list[list[int]] | None:
         if self.coin_mode_var.get() == "auto":
             return None
@@ -542,10 +609,12 @@ class GuiFormsMixin:
             self.birth_var.set(cfg.birth_datetime)
             self.coin_mode_var.set(cfg.coin_mode if cfg.coin_mode in ("manual", "auto") else "manual")
             self.calendar_var.set(cfg.calendar_mode if cfg.calendar_mode in ("solar", "lunar") else "solar")
-            self.method_var.set(cfg.last_method if cfg.last_method in ("coin", "time", "random") else "coin")
+            valid_methods = ("coin", "time", "random", "number")
+            self.method_var.set(cfg.last_method if cfg.last_method in valid_methods else "coin")
             self.use_now_var.set(cfg.use_current_time)
             self.time_input_var.set(cfg.time_input)
             self._load_coin_tosses_from_config(cfg)
+            self._load_number_inputs_from_config(cfg)
 
             labels = [label for _, label in TIMEZONE_PRESETS]
             if cfg.region_label in labels:
@@ -605,6 +674,7 @@ class GuiFormsMixin:
             use_current_time=self.use_now_var.get(),
             time_input=self.time_input_var.get().strip(),
             coin_tosses=self._collect_coin_tosses_state(),
+            number_inputs=self._collect_number_inputs_state(),
             birth_location=self._current_birth_location(),
             divination_location=self._current_div_location(),
             birth_longitude=self._effective_birth_longitude(),

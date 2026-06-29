@@ -21,6 +21,7 @@ from bagua.records import (
     save_record,
     search_records,
 )
+from bagua.divination import parse_number_input
 from bagua.service import perform_divination
 from bagua.timezone import label_for_timezone, parse_datetime_input
 from bagua.user_prefs import stored_coin_tosses_to_points
@@ -95,6 +96,28 @@ def _resolve_divination_datetime(
     return None, None
 
 
+def _resolve_number_inputs(args: CliArgs, config: UserConfig) -> list[int] | None:
+    if args.method != "number":
+        return None
+    if args.nums:
+        numbers = parse_number_input(args.nums)
+        if numbers is None:
+            raise ValueError(f'数字格式无效：{args.nums}，请使用 2～3 个正整数，如 "3 8 5"')
+        return numbers
+    stored = [s.strip() for s in (config.number_inputs or []) if s.strip()]
+    if len(stored) == 3:
+        numbers = parse_number_input(" ".join(stored))
+        if numbers is not None:
+            return numbers
+    if len(stored) >= 2:
+        numbers = parse_number_input(" ".join(stored[:2]))
+        if numbers is not None:
+            return numbers
+    raise ValueError(
+        '数字起卦需要 --nums "3 8 5" 或在 config.json 中设置有效的 number_inputs'
+    )
+
+
 def _resolve_coin_tosses(args: CliArgs, config: UserConfig) -> list[list[int]] | None:
     coin_mode = args.coin_mode or config.coin_mode
     if args.method != "coin" or coin_mode != "manual":
@@ -132,6 +155,13 @@ def _update_config_from_args(
         config.last_method = args.method
     if args.method == "coin" and args.coin_mode:
         config.coin_mode = args.coin_mode
+    if args.method == "number" and args.nums:
+        numbers = parse_number_input(args.nums)
+        if numbers:
+            padded = [str(n) for n in numbers]
+            while len(padded) < 3:
+                padded.append("")
+            config.number_inputs = padded[:3]
     if args.calendar:
         config.calendar_mode = args.calendar
     if args.auto_bazi is not None:
@@ -231,6 +261,7 @@ def run_headless_divination(args: CliArgs) -> int:
     try:
         divination_dt, lunar_input = _resolve_divination_datetime(args, config, ctx)
         coin_tosses = _resolve_coin_tosses(args, config)
+        number_inputs = _resolve_number_inputs(args, config)
     except ValueError as exc:
         console.print(f"[red]{exc}[/red]")
         return 1
@@ -259,6 +290,7 @@ def run_headless_divination(args: CliArgs) -> int:
         ctx,
         coin_tosses=coin_tosses,
         divination_datetime=divination_dt,
+        number_inputs=number_inputs,
         coin_mode=coin_mode,
         auto_bazi=auto_bazi,
     )

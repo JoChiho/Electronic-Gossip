@@ -2,6 +2,16 @@
 
 本文件记录 bagua 各版本变更，格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.10.0] - 2026-06-29
+
+### Added
+
+- **数字起卦**（梅花报数）：2～3 个正整数起卦，复用梅花 mod 8 / mod 6 规则
+- CLI：`bagua -m number --nums "3 8 5"`；交互模式选项 4
+- GUI：起卦方式「数字起卦」+ 三数输入区（第三数可选）
+- AI 提示词【方法论·梅花报数】；`method_desc` 展示取卦公式
+- `UserConfig.number_inputs` 持久化报数
+
 ## [0.9.3] - 2026-06-29
 
 ### Added

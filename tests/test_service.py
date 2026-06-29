@@ -101,6 +101,16 @@ def test_perform_divination_auto_bazi():
     assert "庚午" in result.prompt
 
 
+def test_perform_divination_number():
+    result = perform_divination("number", _ctx(), number_inputs=[3, 8, 5])
+    assert result.yao_values == [8, 8, 8, 7, 6, 7]
+    assert result.hexagram.name == "火地晋"
+    assert "数字起卦" in result.method_desc
+    assert "梅花报数" in result.method_desc
+    assert "【方法论·梅花报数】" in result.prompt
+    assert "体用" in result.prompt
+
+
 def test_prompt_includes_hexagram_text():
     div_tz = get_timezone("UTC", "UTC")
     ctx = UserContext(

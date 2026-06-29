@@ -93,7 +93,11 @@ def show_method_guide(console: Console) -> None:
         "\n"
         "3  随机起卦\n"
         "   一键生成六爻\n"
-        "   适合：快速摸鱼、日常灵感"
+        "   适合：快速摸鱼、日常灵感\n"
+        "\n"
+        "4  数字起卦\n"
+        "   梅花报数，输入 2～3 个正整数\n"
+        "   适合：心中已有数字、测数起卦"
     )
     _panel(console, body, "[bold]起卦方式说明[/bold]", "cyan")
     console.print()
@@ -133,6 +137,19 @@ def show_random_guide(console: Console) -> None:
         "这是最快的起卦方式，适合日常快速占卜。"
     )
     _panel(console, body, "[bold]随机起卦[/bold]", "cyan")
+
+
+def show_number_guide(console: Console) -> None:
+    body = (
+        "梅花报数起卦\n"
+        "  输入 2 个正整数：上卦＝第一数 mod 8，下卦＝第二数 mod 8，\n"
+        "  动爻＝(第一数+第二数) mod 6（余 0 取上爻 6）\n"
+        "\n"
+        "  输入 3 个正整数：上卦、下卦同上，动爻＝第三数 mod 6\n"
+        "\n"
+        "示例：3 8 5  或  3,8,5"
+    )
+    _panel(console, body, "[bold]数字起卦说明[/bold]", "cyan")
 
 
 def show_pre_result_summary(
@@ -176,6 +193,7 @@ METHOD_LABELS = {
     "coin": "铜钱法",
     "time": "时间起卦",
     "random": "随机起卦",
+    "number": "数字起卦",
 }
 
 ARGPARSE_EPILOG = """
@@ -186,6 +204,7 @@ ARGPARSE_EPILOG = """
   bagua -m random -q "问题" --no-copy # 禁止自动复制
   bagua -m time --at "2026-06-24 14:30"
   bagua -m time --calendar lunar --lunar-at "2026-05-10 14:30"
+  bagua -m number --nums "3 8 5" -q "此事如何"
   bagua --list-records               # 查看历史记录
   bagua --list-records --search 工作 # 搜索历史记录
   bagua --show-record 1              # 查看第 1 条记录

@@ -22,3 +22,4 @@ def test_coin_tosses_roundtrip():
 
 def test_method_key_mapping():
     assert METHOD_KEY_TO_NUM["coin"] == "1"
+    assert METHOD_KEY_TO_NUM["number"] == "4"

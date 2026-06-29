@@ -21,6 +21,7 @@ from bagua.cli_guide import (
     show_method_guide,
     show_pre_result_summary,
     show_quick_start,
+    show_number_guide,
     show_random_guide,
     show_step,
     show_time_guide,
@@ -35,7 +36,12 @@ from bagua.config import (
     save_config,
 )
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
-from bagua.divination import coin_tosses_to_display, parse_coin_input, simulate_coin_toss
+from bagua.divination import (
+    coin_tosses_to_display,
+    parse_coin_input,
+    parse_number_input,
+    simulate_coin_toss,
+)
 from bagua.headless import dispatch_headless
 from bagua.lunar_util import is_lunar_available, parse_lunar_datetime_input
 from bagua.models import DivinationRecord, HexagramInfo, UserConfig, UserContext, YaoInfo
@@ -198,22 +204,22 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
     return build_user_context(config), config
 
 
-def select_method(default: str = "coin") -> Literal["coin", "time", "random"]:
+def select_method(default: str = "coin") -> Literal["coin", "time", "random", "number"]:
     show_step(console, 2, "选择起卦方式")
     show_method_guide(console)
     default = normalize_method(default)
     default_label = METHOD_LABELS[default]
     console.print(f"[dim]直接回车 = 沿用上次：{default_label}[/dim]")
-    console.print("[dim]或输入 1–3 选择其他方式[/dim]\n")
+    console.print("[dim]或输入 1–4 选择其他方式[/dim]\n")
 
     mapping = {**METHOD_NUM_TO_KEY, "": default}
     while True:
-        choice = console.input(f"你的选择 [1/2/3，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
+        choice = console.input(f"你的选择 [1/2/3/4，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
         if choice in mapping:
             picked = mapping[choice]
             console.print(f"[green]✓[/green] 已选择：{METHOD_LABELS[picked]}")
             return picked  # type: ignore[return-value]
-        console.print("[red]请输入 1、2、3，或直接回车。[/red]")
+        console.print("[red]请输入 1、2、3、4，或直接回车。[/red]")
 
 
 def _select_coin_mode(default: str) -> str:
@@ -300,15 +306,36 @@ def _select_calendar_mode(default: str) -> str:
         console.print("[red]请输入 1、2，或直接回车。[/red]")
 
 
+def collect_number_inputs(config: UserConfig) -> list[int]:
+    show_number_guide(console)
+    stored = config.number_inputs or []
+    default_raw = " ".join(s.strip() for s in stored if s.strip())
+    hint = f" [dim]上次 {default_raw}[/dim]" if default_raw else ""
+    while True:
+        raw = console.input(f"请输入 2～3 个正整数（空格或逗号分隔）{hint}: ").strip()
+        raw = raw or default_raw
+        numbers = parse_number_input(raw)
+        if numbers is None:
+            console.print('[red]格式不对。[/red] 需要 2 或 3 个正整数，如 [bold]3 8 5[/bold]')
+            continue
+        padded = [str(n) for n in numbers]
+        while len(padded) < 3:
+            padded.append("")
+        config.number_inputs = padded[:3]
+        console.print(f"[green]✓[/green] 报数：{' '.join(str(n) for n in numbers)}")
+        return numbers
+
+
 def collect_divination_params(
     method: str,
     ctx: UserContext,
     config: UserConfig,
-) -> tuple[list[list[int]] | None, object | None, str, UserContext]:
+) -> tuple[list[list[int]] | None, object | None, list[int] | None, str, UserContext]:
     show_step(console, 3, "起卦操作")
 
     coin_tosses: list[list[int]] | None = None
     divination_datetime = None
+    number_inputs: list[int] | None = None
     coin_mode = ctx.coin_mode
     lunar_input: str | None = None
     calendar_mode = ctx.calendar_mode
@@ -371,6 +398,8 @@ def collect_divination_params(
     elif method == "random":
         show_random_guide(console)
         console.print("[green]✓[/green] 准备随机起卦")
+    elif method == "number":
+        number_inputs = collect_number_inputs(config)
 
     updated_ctx = build_user_context(
         config,
@@ -381,7 +410,7 @@ def collect_divination_params(
         calendar_mode=calendar_mode,
         lunar_input=lunar_input,
     )
-    return coin_tosses, divination_datetime, coin_mode, updated_ctx
+    return coin_tosses, divination_datetime, number_inputs, coin_mode, updated_ctx
 
 
 # ---------------------------------------------------------------------------
@@ -479,7 +508,9 @@ def run_interactive() -> None:
     ctx, config = setup_user_context(config)
     method = select_method(config.last_method)
 
-    coin_tosses, divination_dt, coin_mode, ctx = collect_divination_params(method, ctx, config)
+    coin_tosses, divination_dt, number_inputs, coin_mode, ctx = collect_divination_params(
+        method, ctx, config,
+    )
 
     show_pre_result_summary(
         console,
@@ -493,6 +524,7 @@ def run_interactive() -> None:
         ctx,
         coin_tosses=coin_tosses,
         divination_datetime=divination_dt,
+        number_inputs=number_inputs,
         coin_mode=coin_mode if method == "coin" else ctx.coin_mode,
         auto_bazi=config.auto_bazi,
     )

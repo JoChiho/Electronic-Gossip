@@ -8,7 +8,7 @@ from typing import Literal
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
 from bagua.timezone import TimezoneInfo
 
-DivinationMethod = Literal["coin", "time", "random"]
+DivinationMethod = Literal["coin", "time", "random", "number"]
 CoinMode = Literal["manual", "auto"]
 
 
@@ -32,6 +32,7 @@ class UserConfig:
     coin_tosses: list[list[str]] = field(
         default_factory=lambda: [["1", "1", "1"] for _ in range(6)]
     )
+    number_inputs: list[str] = field(default_factory=lambda: ["3", "8", "5"])
     birth_location: str = ""
     divination_location: str = ""
     birth_longitude: float | None = None

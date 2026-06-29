@@ -163,6 +163,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
         self.options_container.pack(fill=tk.X, pady=(0, 4))
         self._build_coin_section(self.options_container)
         self._build_time_section(self.options_container)
+        self._build_number_section(self.options_container)
 
         self._build_action_section(scroll_frame)
 
@@ -297,9 +298,10 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                 messagebox.showerror("输入错误", loc_err)
                 return
             ctx = self._build_context()
-            method = cast(Literal["coin", "time", "random"], self.method_var.get())
+            method = cast(Literal["coin", "time", "random", "number"], self.method_var.get())
             coin_tosses = None
             divination_dt = None
+            number_inputs = None
             coin_mode = self.coin_mode_var.get()
 
             if method == "coin":
@@ -336,12 +338,21 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                         use_true_solar_birth=ctx.use_true_solar_birth,
                         use_true_solar_divination=ctx.use_true_solar_divination,
                     )
+            elif method == "number":
+                number_inputs = self._collect_number_inputs()
+                if number_inputs is None:
+                    messagebox.showerror(
+                        "输入错误",
+                        "请填写第一、第二数（正整数）；第三数可选，用于指定动爻",
+                    )
+                    return
 
             result = perform_divination(
                 method,
                 ctx,
                 coin_tosses=coin_tosses,
                 divination_datetime=divination_dt,
+                number_inputs=number_inputs,
                 coin_mode=coin_mode,
                 auto_bazi=self._config.auto_bazi,
             )

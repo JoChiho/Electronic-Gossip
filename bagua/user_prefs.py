@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from bagua.divination import parse_coin_input
 
-METHOD_NUM_TO_KEY = {"1": "coin", "2": "time", "3": "random"}
+METHOD_NUM_TO_KEY = {"1": "coin", "2": "time", "3": "random", "4": "number"}
 METHOD_KEY_TO_NUM = {v: k for k, v in METHOD_NUM_TO_KEY.items()}
 
 

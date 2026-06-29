@@ -29,4 +29,5 @@ METHOD_LABELS = {
     "coin": "铜钱法",
     "time": "时间起卦",
     "random": "随机起卦",
+    "number": "数字起卦",
 }

@@ -5,10 +5,13 @@ import random
 from bagua.divination import (
     auto_coin_yao_values,
     coin_yao_values_from_tosses,
+    divinate_by_numbers,
     divinate_by_time,
     divinate_coin,
+    parse_number_input,
     tosses_to_yao_value,
 )
+from bagua.hexagram import build_hexagram
 
 
 def test_tosses_to_yao_value():
@@ -46,6 +49,29 @@ def test_divinate_by_time_known_case():
     values, desc, _resolved = divinate_by_time(dt, tz=tz)
     assert len(values) == 6
     assert "节气历" in desc
+
+
+def test_parse_number_input():
+    assert parse_number_input("3 8 5") == [3, 8, 5]
+    assert parse_number_input("3,8") == [3, 8]
+    assert parse_number_input("3 8 0") is None
+    assert parse_number_input("3") is None
+
+
+def test_divinate_by_numbers_three_inputs():
+    values, desc = divinate_by_numbers(3, 8, 5)
+    assert values == [8, 8, 8, 7, 6, 7]
+    assert build_hexagram(values).name == "火地晋"
+    assert "离" in desc
+    assert "坤" in desc
+    assert "第5爻" in desc
+
+
+def test_divinate_by_numbers_two_inputs():
+    values, desc = divinate_by_numbers(3, 8)
+    assert values == [8, 8, 8, 7, 6, 7]
+    assert "(3+8)=11" in desc
+    assert "第5爻" in desc
 
 
 def test_divinate_by_time_lunar_mode():

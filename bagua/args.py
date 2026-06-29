@@ -33,6 +33,7 @@ class CliArgs:
     calendar: str | None = None
     lunar_at: str | None = None
     auto_bazi: bool | None = None
+    nums: str | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -44,8 +45,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "-m", "--method",
-        choices=["coin", "time", "random"],
+        choices=["coin", "time", "random", "number"],
         help="起卦方式（指定后进入非交互模式）",
+    )
+    parser.add_argument(
+        "--nums",
+        metavar="NUMS",
+        help='数字起卦报数，2～3 个正整数，如 "3 8 5"（省略时读取 config.json）',
     )
     parser.add_argument("-q", "--question", help="占卜问题")
     parser.add_argument("--bazi", help="生辰八字")
@@ -159,4 +165,5 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         calendar=ns.calendar,
         lunar_at=ns.lunar_at,
         auto_bazi=False if ns.no_auto_bazi else (True if ns.auto_bazi else None),
+        nums=ns.nums,
     )

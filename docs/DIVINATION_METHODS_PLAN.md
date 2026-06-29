@@ -1,7 +1,7 @@
 # 起卦方式扩展计划
 
 > 维护说明：每完成一步将 `[ ]` 改为 `[x]`，并在「进度日志」追加一行。  
-> 创建日期：2026-06-29 · 当前基线版本：**v0.9.3**
+> 创建日期：2026-06-29 · 当前基线版本：**v0.10.0**
 
 ---
 
@@ -12,6 +12,7 @@
 | 铜钱法 | `coin` | ✅ | 三钱法，近世最常用 |
 | 时间起卦 | `time` | ✅ | 梅花易数「年月日时」体例 |
 | 随机起卦 | `random` | ✅ | 工具向，非传统术数 |
+| 数字起卦 | `number` | ✅ | 梅花报数，2～3 数 |
 
 **统一数据流：**
 
@@ -89,16 +90,16 @@ def divinate_*(...) -> tuple[list[int], str]:  # 六爻值, method_desc
 
 ### Phase A — v0.10.0 数字起卦（梅花报数）
 
-- [ ] **A1** `divinate_by_numbers(n1, n2, n3=None)` 纯逻辑  
+- [x] **A1** `divinate_by_numbers(n1, n2, n3=None)` 纯逻辑  
   - 两数：上卦 n1%8，下卦 n2%8，动爻 (n1+n2)%6  
   - 三数：上卦 n1%8，下卦 n2%8，动爻 n3%6  
   - 单元测试：固定输入可复现
-- [ ] **A2** `DivinationMethod` 增加 `"number"`；`METHOD_LABELS`、CLI  
+- [x] **A2** `DivinationMethod` 增加 `"number"`；`METHOD_LABELS`、CLI  
   - `--method number --nums "3 8 5"`（或等价参数）
-- [ ] **A3** GUI：起卦方式「数字起卦」+ 2～3 个数字输入框 + 说明文案
-- [ ] **A4** `prompt.py`【方法论·数字卦】+ `method_desc` 展示公式
-- [ ] **A5** 集成测试 `perform_divination("number", ...)`；历史/Markdown 无需改 schema
-- [ ] **A6** bump 版本、CHANGELOG、`PROJECT_STATUS.md`
+- [x] **A3** GUI：起卦方式「数字起卦」+ 2～3 个数字输入框 + 说明文案
+- [x] **A4** `prompt.py`【方法论·数字卦】+ `method_desc` 展示公式
+- [x] **A5** 集成测试 `perform_divination("number", ...)`；历史/Markdown 无需改 schema
+- [x] **A6** bump 版本、CHANGELOG、`PROJECT_STATUS.md`
 
 **验收：** 输入 `3, 8, 5` 卦象可复现；提示词含公式与体用说明。
 
@@ -154,7 +155,7 @@ def divinate_*(...) -> tuple[list[int], str]:  # 六爻值, method_desc
 ## 五、版本路线图
 
 ```
-v0.10.0  数字起卦（梅花报数）     ← 当前下一步
+v0.10.0  数字起卦（梅花报数）     ← 已完成
 v0.10.1  手动选卦
 v0.10.2  蓍草法（大衍模拟）
 v0.11.0  汉字起卦
@@ -176,7 +177,7 @@ v1.0.0   起卦方式冻结 + 文档 + Release 验证
 | 日期 | 版本 | 摘要 |
 |------|------|------|
 | 2026-06-29 | — | 计划文档创建；用户确认实施顺序 |
-| | | |
+| 2026-06-29 | v0.10.0 | Phase A 完成：数字起卦（梅花报数）全链路 |
 | | | |
 
 ---
