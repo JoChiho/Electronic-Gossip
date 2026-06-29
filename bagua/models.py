@@ -32,6 +32,8 @@ class UserConfig:
     coin_tosses: list[list[str]] = field(
         default_factory=lambda: [["1", "1", "1"] for _ in range(6)]
     )
+    birth_location: str = ""
+    divination_location: str = ""
     birth_longitude: float | None = None
     divination_longitude: float | None = None
     use_true_solar_birth: bool = True

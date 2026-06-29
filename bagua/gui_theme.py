@@ -40,6 +40,7 @@ FONT_SYMBOL = ("Segoe UI Symbol", 18)
 FONT_CANVAS_TITLE = (FONT_FAMILY, 12, "bold")
 FONT_CANVAS_BODY = (FONT_FAMILY, 11)
 FONT_CANVAS_HINT = (FONT_FAMILY, 9)
+FONT_PROMPT = (FONT_MONO_FAMILY, 10)
 
 
 def _build_fonts(scale: float = 1.0) -> dict[str, tuple]:
@@ -55,12 +56,14 @@ def _build_fonts(scale: float = 1.0) -> dict[str, tuple]:
         "canvas_body": scaled_font(FONT_FAMILY, 11, scale=scale),
         "canvas_hint": scaled_font(FONT_FAMILY, 9, scale=scale),
         "symbol": scaled_font("Segoe UI Symbol", 18, scale=scale),
+        "prompt": scaled_font(FONT_MONO_FAMILY, 10, scale=scale),
     }
 
 
 def apply_theme(root: tk.Tk, *, scale: float = 1.0) -> ttk.Style:
     global FONT_UI, FONT_TITLE, FONT_HEADER, FONT_SUBTITLE, FONT_MONO, FONT_SECTION
     global FONT_ACCENT_BTN, FONT_SYMBOL, FONT_CANVAS_TITLE, FONT_CANVAS_BODY, FONT_CANVAS_HINT
+    global FONT_PROMPT
 
     fonts = _build_fonts(scale)
     FONT_UI = fonts["ui"]
@@ -74,6 +77,7 @@ def apply_theme(root: tk.Tk, *, scale: float = 1.0) -> ttk.Style:
     FONT_CANVAS_TITLE = fonts["canvas_title"]
     FONT_CANVAS_BODY = fonts["canvas_body"]
     FONT_CANVAS_HINT = fonts["canvas_hint"]
+    FONT_PROMPT = fonts["prompt"]
 
     root.configure(bg=THEME["bg"])
     style = ttk.Style(root)
@@ -186,6 +190,22 @@ def apply_theme(root: tk.Tk, *, scale: float = 1.0) -> ttk.Style:
         padding=(12, 7),
     )
     style.configure(
+        "Toolbar.TFrame",
+        background=THEME["surface_alt"],
+    )
+    style.configure(
+        "PromptCard.TLabelframe",
+        background=THEME["surface"],
+        bordercolor=THEME["accent_dim"],
+        relief="flat",
+    )
+    style.configure(
+        "PromptCard.TLabelframe.Label",
+        background=THEME["surface"],
+        foreground=THEME["accent"],
+        font=FONT_SECTION,
+    )
+    style.configure(
         "Status.TLabel",
         background=THEME["surface_alt"],
         foreground=THEME["text_muted"],
@@ -200,6 +220,23 @@ def apply_theme(root: tk.Tk, *, scale: float = 1.0) -> ttk.Style:
         arrowcolor=THEME["accent"],
     )
     return style
+
+
+def bind_readonly_text(widget: tk.Text) -> None:
+    """只读但允许选择与 Ctrl+C / Ctrl+A。"""
+
+    def _on_key(event: tk.Event) -> str | None:
+        ctrl = bool(event.state & 0x4)
+        if ctrl and event.keysym.lower() in ("c", "a", "insert"):
+            return None
+        if event.keysym in (
+            "Left", "Right", "Up", "Down", "Home", "End",
+            "Prior", "Next", "Shift_L", "Shift_R", "Control_L", "Control_R",
+        ):
+            return None
+        return "break"
+
+    widget.bind("<Key>", _on_key)
 
 
 def style_text_widget(widget: tk.Text, *, readonly: bool = False) -> None:

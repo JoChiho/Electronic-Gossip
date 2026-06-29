@@ -62,6 +62,8 @@ def test_perform_divination_time():
     assert "节气历" in result.method_desc
     assert "用户公历" in result.divination_time
     assert "节气历" in result.prompt
+    assert "体用" in result.prompt
+    assert "不参与卦象演算" in result.prompt
 
 
 def test_birth_and_divination_timezone_split():

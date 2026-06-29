@@ -26,6 +26,10 @@ class CliArgs:
     list_records: bool = False
     show_record: str | None = None
     delete_record: str | None = None
+    search: str | None = None
+    export_record: str | None = None
+    export_records: bool = False
+    markdown_out: str | None = None
     calendar: str | None = None
     lunar_at: str | None = None
     auto_bazi: bool | None = None
@@ -95,6 +99,22 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--show-record", metavar="ID", help="查看记录（文件名或序号）")
     parser.add_argument("--delete-record", metavar="ID", help="删除记录（文件名或序号）")
     parser.add_argument(
+        "--search",
+        metavar="QUERY",
+        help="搜索记录（配合 --list-records 或 --export-records）",
+    )
+    parser.add_argument("--export-record", metavar="ID", help="导出单条记录为 Markdown")
+    parser.add_argument(
+        "--export-records",
+        action="store_true",
+        help="导出全部或搜索结果为 Markdown（可用 --search 筛选）",
+    )
+    parser.add_argument(
+        "-o", "--markdown-out",
+        metavar="PATH",
+        help="Markdown 导出路径（配合 --export-record / --export-records）",
+    )
+    parser.add_argument(
         "-i", "--interactive",
         action="store_true",
         help="强制交互模式",
@@ -111,6 +131,8 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         ns.list_records,
         ns.show_record,
         ns.delete_record,
+        ns.export_record,
+        ns.export_records,
     ])
 
     return CliArgs(
@@ -130,6 +152,10 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         list_records=ns.list_records,
         show_record=ns.show_record,
         delete_record=ns.delete_record,
+        search=ns.search,
+        export_record=ns.export_record,
+        export_records=ns.export_records,
+        markdown_out=ns.markdown_out,
         calendar=ns.calendar,
         lunar_at=ns.lunar_at,
         auto_bazi=False if ns.no_auto_bazi else (True if ns.auto_bazi else None),

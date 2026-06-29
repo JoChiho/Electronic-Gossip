@@ -2,6 +2,28 @@
 
 本文件记录 bagua 各版本变更，格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.9.3] - 2026-06-29
+
+### Added
+
+- **六十四卦爻辞全文**（384 条《周易》原文，`yao_texts_data.py`）
+- AI 提示词与 Markdown 导出附带爻辞；变爻以 ★ 标注
+- 构建脚本 `scripts/build_yao_texts.py`（数据来源 open-iching）
+
+## [0.9.2] - 2026-06-29
+
+### Added
+
+- 历史记录**搜索**：CLI `--list-records --search <关键词>`；GUI 历史窗口搜索框
+- 历史记录**导出 Markdown**：`--export-record` / `--export-records`（支持 `-o` 与 `--search` 筛选）
+- GUI 历史窗口：「导出所选」「导出列表」按钮
+- 模块 `record_markdown.py`：记录转 Markdown 纯逻辑
+
+### Changed
+
+- GUI 主表单：出生/起卦地点与经纬度展示（真太阳时）
+- GUI 布局：AI 提示词全宽主区域、复制工具栏
+
 ## [0.9.1] - 2026-06-29
 
 ### Added
@@ -99,6 +121,8 @@
 - 用户信息持久化至 `~/.bagua/config.json`
 - pytest + GitHub Actions CI
 
+[0.9.3]: https://github.com/example/bagua/compare/v0.9.2...v0.9.3
+[0.9.2]: https://github.com/example/bagua/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/example/bagua/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/example/bagua/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/example/bagua/compare/v0.8.0...v0.8.1

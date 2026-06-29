@@ -8,6 +8,18 @@ from tkinter import messagebox, ttk
 from bagua.bazi import compute_bazi
 from bagua.config import CONFIG_PATH, save_config
 from bagua.divination import tosses_to_yao_value
+from bagua.locations import (
+    LOCATION_CUSTOM,
+    LOCATION_FOLLOW_TZ,
+    LOCATION_OPTIONS,
+    default_city_for_timezone,
+    display_coord_hint,
+    format_latitude,
+    infer_location_label,
+    parse_longitude,
+    resolve_display_coord,
+    resolve_longitude,
+)
 from bagua.models import UserConfig, UserContext
 from bagua.timezone import (
     TIMEZONE_PRESETS,
@@ -41,6 +53,16 @@ class GuiFormsMixin:
     time_input_var: tk.StringVar
     time_entry: ttk.Entry
     time_hint_label: ttk.Label
+    birth_location_var: tk.StringVar
+    birth_lon_var: tk.StringVar
+    birth_lat_var: tk.StringVar
+    birth_coord_hint: ttk.Label
+    use_true_solar_birth_var: tk.BooleanVar
+    div_location_var: tk.StringVar
+    div_lon_var: tk.StringVar
+    div_lat_var: tk.StringVar
+    div_coord_hint: ttk.Label
+    use_true_solar_div_var: tk.BooleanVar
 
     def _section(self, parent: ttk.Frame, title: str) -> ttk.LabelFrame:
         frame = ttk.LabelFrame(parent, text=f"  {title}  ", style="Section.TLabelframe", padding=14)
@@ -82,6 +104,46 @@ class GuiFormsMixin:
             width=36,
         )
         self.tz_combo.grid(row=3, column=1, columnspan=2, sticky=tk.W, padx=(10, 0))
+        self.tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_birth_tz_changed())
+
+        ttk.Label(frame, text="出生地点", style="Field.TLabel").grid(row=4, column=0, sticky=tk.W, pady=(10, 0))
+        self.birth_location_var = tk.StringVar(value=LOCATION_FOLLOW_TZ)
+        self.birth_location_combo = ttk.Combobox(
+            frame,
+            textvariable=self.birth_location_var,
+            values=LOCATION_OPTIONS,
+            state="readonly",
+            width=18,
+        )
+        self.birth_location_combo.grid(row=4, column=1, sticky=tk.W, padx=(10, 0), pady=(10, 0))
+
+        ttk.Label(frame, text="出生地坐标", style="Field.TLabel").grid(row=5, column=0, sticky=tk.W, pady=(8, 0))
+        coord_row = ttk.Frame(frame, style="Card.TFrame")
+        coord_row.grid(row=5, column=1, columnspan=2, sticky=tk.EW, padx=(10, 0), pady=(8, 0))
+        ttk.Label(coord_row, text="经度", style="Muted.TLabel").pack(side=tk.LEFT)
+        self.birth_lon_var = tk.StringVar()
+        self.birth_lon_entry = ttk.Entry(coord_row, textvariable=self.birth_lon_var, width=10)
+        self.birth_lon_entry.pack(side=tk.LEFT, padx=(4, 12))
+        ttk.Label(coord_row, text="纬度", style="Muted.TLabel").pack(side=tk.LEFT)
+        self.birth_lat_var = tk.StringVar(value="—")
+        ttk.Label(coord_row, textvariable=self.birth_lat_var, style="Field.TLabel", width=14).pack(
+            side=tk.LEFT, padx=(4, 0),
+        )
+        self.birth_coord_hint = ttk.Label(frame, text="", style="Muted.TLabel")
+        self.birth_coord_hint.grid(row=6, column=1, columnspan=2, sticky=tk.W, padx=(10, 0))
+
+        self.use_true_solar_birth_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            frame,
+            text="八字排盘使用出生地真太阳时",
+            variable=self.use_true_solar_birth_var,
+        ).grid(row=7, column=1, columnspan=2, sticky=tk.W, padx=(10, 0), pady=(8, 0))
+        ttk.Label(
+            frame,
+            text="真太阳时校正仅使用经度；纬度用于确认所选城市（不影响演卦）",
+            style="Muted.TLabel",
+        ).grid(row=8, column=1, columnspan=2, sticky=tk.W, padx=(10, 0))
+
         frame.columnconfigure(1, weight=1)
 
     def _build_method_section(self, parent: ttk.Frame) -> None:
@@ -194,6 +256,49 @@ class GuiFormsMixin:
             text="可与出生地不同，如北京出生、东京起卦",
             style="Muted.TLabel",
         ).grid(row=4, column=1, columnspan=2, sticky=tk.W, padx=(10, 0))
+        self.div_tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_div_tz_changed())
+
+        ttk.Label(self.time_frame, text="起卦地点", style="Field.TLabel").grid(
+            row=5, column=0, sticky=tk.W, pady=(10, 0),
+        )
+        self.div_location_var = tk.StringVar(value=LOCATION_FOLLOW_TZ)
+        self.div_location_combo = ttk.Combobox(
+            self.time_frame,
+            textvariable=self.div_location_var,
+            values=LOCATION_OPTIONS,
+            state="readonly",
+            width=18,
+        )
+        self.div_location_combo.grid(row=5, column=1, sticky=tk.W, padx=(10, 0), pady=(10, 0))
+
+        ttk.Label(self.time_frame, text="起卦地坐标", style="Field.TLabel").grid(
+            row=6, column=0, sticky=tk.W, pady=(8, 0),
+        )
+        div_coord_row = ttk.Frame(self.time_frame, style="Card.TFrame")
+        div_coord_row.grid(row=6, column=1, columnspan=2, sticky=tk.EW, padx=(10, 0), pady=(8, 0))
+        ttk.Label(div_coord_row, text="经度", style="Muted.TLabel").pack(side=tk.LEFT)
+        self.div_lon_var = tk.StringVar()
+        self.div_lon_entry = ttk.Entry(div_coord_row, textvariable=self.div_lon_var, width=10)
+        self.div_lon_entry.pack(side=tk.LEFT, padx=(4, 12))
+        ttk.Label(div_coord_row, text="纬度", style="Muted.TLabel").pack(side=tk.LEFT)
+        self.div_lat_var = tk.StringVar(value="—")
+        ttk.Label(div_coord_row, textvariable=self.div_lat_var, style="Field.TLabel", width=14).pack(
+            side=tk.LEFT, padx=(4, 0),
+        )
+        self.div_coord_hint = ttk.Label(self.time_frame, text="", style="Muted.TLabel")
+        self.div_coord_hint.grid(row=7, column=1, columnspan=2, sticky=tk.W, padx=(10, 0))
+
+        self.use_true_solar_div_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            self.time_frame,
+            text="时间起卦使用起卦地真太阳时",
+            variable=self.use_true_solar_div_var,
+        ).grid(row=8, column=1, columnspan=2, sticky=tk.W, padx=(10, 0), pady=(8, 0))
+        ttk.Label(
+            self.time_frame,
+            text="真太阳时仅校正经度；配合节气历换算时辰",
+            style="Muted.TLabel",
+        ).grid(row=9, column=1, columnspan=2, sticky=tk.W, padx=(10, 0))
 
     def _bind_autosave(self) -> None:
         for var in (
@@ -206,14 +311,95 @@ class GuiFormsMixin:
             self.coin_mode_var,
             self.calendar_var,
             self.time_input_var,
+            self.birth_lon_var,
+            self.div_lon_var,
         ):
             var.trace_add("write", lambda *_: self._schedule_save())
+        self.birth_location_var.trace_add("write", self._on_birth_location_var_changed)
+        self.div_location_var.trace_add("write", self._on_div_location_var_changed)
         self.use_now_var.trace_add("write", lambda *_: self._schedule_save())
+        self.use_true_solar_birth_var.trace_add("write", lambda *_: self._schedule_save())
+        self.use_true_solar_div_var.trace_add("write", lambda *_: self._schedule_save())
         for row in self._coin_vars:
             for var in row:
                 var.trace_add("write", lambda *_: self._schedule_save())
         self.tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
         self.div_tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
+
+    def _current_birth_location(self) -> str:
+        return self.birth_location_combo.get().strip() or self.birth_location_var.get().strip()
+
+    def _current_div_location(self) -> str:
+        return self.div_location_combo.get().strip() or self.div_location_var.get().strip()
+
+    def _refresh_birth_coord_display(self) -> None:
+        iana, _ = self._selected_birth_timezone()
+        location = self._current_birth_location()
+        lon, lat = resolve_display_coord(location, self.birth_lon_var.get(), iana)
+        if location != LOCATION_CUSTOM:
+            self.birth_lon_var.set(f"{lon:.2f}")
+        self.birth_lat_var.set(format_latitude(lat))
+        effective_lon = resolve_longitude(location, self.birth_lon_var.get(), iana)
+        display_lon = effective_lon if effective_lon is not None else lon
+        self.birth_coord_hint.configure(text=display_coord_hint(display_lon, iana, lat))
+
+    def _refresh_div_coord_display(self) -> None:
+        iana, _ = self._selected_divination_timezone()
+        location = self._current_div_location()
+        lon, lat = resolve_display_coord(location, self.div_lon_var.get(), iana)
+        if location != LOCATION_CUSTOM:
+            self.div_lon_var.set(f"{lon:.2f}")
+        self.div_lat_var.set(format_latitude(lat))
+        effective_lon = resolve_longitude(location, self.div_lon_var.get(), iana)
+        display_lon = effective_lon if effective_lon is not None else lon
+        self.div_coord_hint.configure(text=display_coord_hint(display_lon, iana, lat))
+
+    def _on_birth_location_var_changed(self, *_args: object) -> None:
+        if self._loading_form:
+            return
+        self.after_idle(self._refresh_birth_coord_display)
+        self._schedule_save()
+
+    def _on_div_location_var_changed(self, *_args: object) -> None:
+        if self._loading_form:
+            return
+        self.after_idle(self._refresh_div_coord_display)
+        self._schedule_save()
+
+    def _on_birth_tz_changed(self) -> None:
+        if self._current_birth_location() == LOCATION_FOLLOW_TZ:
+            self._refresh_birth_coord_display()
+        self._schedule_save()
+
+    def _on_div_tz_changed(self) -> None:
+        if self._current_div_location() == LOCATION_FOLLOW_TZ:
+            self._refresh_div_coord_display()
+        self._schedule_save()
+
+    def _effective_birth_longitude(self) -> float | None:
+        iana, _ = self._selected_birth_timezone()
+        return resolve_longitude(
+            self._current_birth_location(),
+            self.birth_lon_var.get(),
+            iana,
+        )
+
+    def _effective_divination_longitude(self) -> float | None:
+        iana, _ = self._selected_divination_timezone()
+        return resolve_longitude(
+            self._current_div_location(),
+            self.div_lon_var.get(),
+            iana,
+        )
+
+    def _validate_location_fields(self) -> str | None:
+        if self._current_birth_location() == LOCATION_CUSTOM:
+            if parse_longitude(self.birth_lon_var.get()) is None:
+                return "出生经度格式无效，请填写数字（东经为正，西经为负）"
+        if self._current_div_location() == LOCATION_CUSTOM:
+            if parse_longitude(self.div_lon_var.get()) is None:
+                return "起卦经度格式无效，请填写数字（东经为正，西经为负）"
+        return None
 
     def _schedule_save(self) -> None:
         if self._loading_form:
@@ -273,8 +459,8 @@ class GuiFormsMixin:
         computed, _note = compute_bazi(
             birth,
             tz,
-            longitude=self._config.birth_longitude,
-            use_true_solar=self._config.use_true_solar_birth,
+            longitude=self._effective_birth_longitude(),
+            use_true_solar=self.use_true_solar_birth_var.get(),
         )
         if not computed:
             messagebox.showwarning("排盘失败", "无法解析出生时间，请检查格式与时区")
@@ -317,10 +503,10 @@ class GuiFormsMixin:
             coin_mode=self.coin_mode_var.get(),
             calendar_mode=self.calendar_var.get(),
             include_hexagram_texts=self._config.include_hexagram_texts,
-            birth_longitude=self._config.birth_longitude,
-            divination_longitude=self._config.divination_longitude,
-            use_true_solar_birth=self._config.use_true_solar_birth,
-            use_true_solar_divination=self._config.use_true_solar_divination,
+            birth_longitude=self._effective_birth_longitude(),
+            divination_longitude=self._effective_divination_longitude(),
+            use_true_solar_birth=self.use_true_solar_birth_var.get(),
+            use_true_solar_divination=self.use_true_solar_div_var.get(),
         )
 
     def _collect_coin_tosses(self) -> list[list[int]] | None:
@@ -373,6 +559,26 @@ class GuiFormsMixin:
             else:
                 self.div_tz_display_var.set(TIMEZONE_PRESETS[0][1])
 
+            birth_loc = cfg.birth_location or infer_location_label(
+                cfg.birth_longitude, cfg.timezone,
+            )
+            if birth_loc not in LOCATION_OPTIONS:
+                birth_loc = default_city_for_timezone(cfg.timezone)
+            self.birth_location_var.set(birth_loc)
+
+            div_iana = cfg.divination_timezone or cfg.timezone
+            div_loc = cfg.divination_location or infer_location_label(
+                cfg.divination_longitude, div_iana,
+            )
+            if div_loc not in LOCATION_OPTIONS:
+                div_loc = default_city_for_timezone(div_iana)
+            self.div_location_var.set(div_loc)
+
+            self.use_true_solar_birth_var.set(cfg.use_true_solar_birth)
+            self.use_true_solar_div_var.set(cfg.use_true_solar_divination)
+            self._refresh_birth_coord_display()
+            self._refresh_div_coord_display()
+
             self._on_method_changed()
             self._on_use_now_changed()
             self._on_calendar_changed()
@@ -399,9 +605,11 @@ class GuiFormsMixin:
             use_current_time=self.use_now_var.get(),
             time_input=self.time_input_var.get().strip(),
             coin_tosses=self._collect_coin_tosses_state(),
-            birth_longitude=self._config.birth_longitude,
-            divination_longitude=self._config.divination_longitude,
-            use_true_solar_birth=self._config.use_true_solar_birth,
-            use_true_solar_divination=self._config.use_true_solar_divination,
+            birth_location=self._current_birth_location(),
+            divination_location=self._current_div_location(),
+            birth_longitude=self._effective_birth_longitude(),
+            divination_longitude=self._effective_divination_longitude(),
+            use_true_solar_birth=self.use_true_solar_birth_var.get(),
+            use_true_solar_divination=self.use_true_solar_div_var.get(),
         )
         save_config(self._config)

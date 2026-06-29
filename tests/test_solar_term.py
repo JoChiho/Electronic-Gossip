@@ -20,6 +20,19 @@ def test_solar_term_month_changes_at_lichun():
     assert st_before.year_gan_zhi != st_after.year_gan_zhi
 
 
+def test_solar_term_year_changes_at_lichun():
+    """节气历年数应与立春换年、年干支一致，而非春节农历年。"""
+    tz = get_timezone("Asia/Shanghai", "中国")
+    before = datetime(2026, 2, 3, 12, 0, tzinfo=tz.tzinfo)
+    after = datetime(2026, 2, 4, 12, 0, tzinfo=tz.tzinfo)
+    st_before = solar_term_components_from_datetime(before)
+    st_after = solar_term_components_from_datetime(after)
+    assert st_before.year == 2025
+    assert st_after.year == 2026
+    assert st_before.year_gan_zhi == "乙巳"
+    assert st_after.year_gan_zhi == "丙午"
+
+
 def test_solar_mode_uses_solar_term_in_prompt_notes():
     tz = get_timezone("Asia/Shanghai", "中国")
     dt = datetime(2026, 6, 24, 14, 30, tzinfo=tz.tzinfo)

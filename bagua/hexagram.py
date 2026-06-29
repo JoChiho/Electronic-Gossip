@@ -62,11 +62,31 @@ def build_hexagram(yao_values: list[int]) -> HexagramInfo:
         changed_lower = _lines_to_trigram(tuple(changed_binary[0:3]))
         changed_upper = _lines_to_trigram(tuple(changed_binary[3:6]))
         changed_name = HEXAGRAM_NAMES[TRIGRAMS.index(changed_upper)][TRIGRAMS.index(changed_lower)]
+        changed_yaos: list[YaoInfo] = []
+        for y in yaos:
+            if y.is_changing:
+                changed_yaos.append(
+                    YaoInfo(
+                        position=y.position,
+                        value=8 if y.is_yang else 7,
+                        is_yang=not y.is_yang,
+                        is_changing=False,
+                    )
+                )
+            else:
+                changed_yaos.append(
+                    YaoInfo(
+                        position=y.position,
+                        value=y.value,
+                        is_yang=y.is_yang,
+                        is_changing=False,
+                    )
+                )
         hexagram.changed_hexagram = HexagramInfo(
             name=changed_name,
             upper_trigram=changed_upper,
             lower_trigram=changed_lower,
-            yaos=yaos,
+            yaos=changed_yaos,
             changing_positions=[],
         )
 

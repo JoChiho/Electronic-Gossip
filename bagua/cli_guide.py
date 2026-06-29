@@ -187,7 +187,11 @@ ARGPARSE_EPILOG = """
   bagua -m time --at "2026-06-24 14:30"
   bagua -m time --calendar lunar --lunar-at "2026-05-10 14:30"
   bagua --list-records               # 查看历史记录
+  bagua --list-records --search 工作 # 搜索历史记录
   bagua --show-record 1              # 查看第 1 条记录
+  bagua --export-record 1 -o out.md  # 导出单条为 Markdown
+  bagua --export-records -o all.md   # 导出全部记录
+  bagua --export-records --search 跳槽 -o job.md
 
 交互模式输入提示：
   回车    沿用默认值

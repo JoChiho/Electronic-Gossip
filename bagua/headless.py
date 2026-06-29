@@ -10,7 +10,17 @@ from bagua.clipboard import copy_to_clipboard
 from bagua.config import build_user_context, load_config, save_config
 from bagua.gui_display import format_hexagram_display
 from bagua.models import DivinationRecord, UserConfig, UserContext
-from bagua.records import delete_record, list_records, load_record_json, save_record
+from pathlib import Path
+
+from bagua.records import (
+    delete_record,
+    export_record_markdown,
+    export_records_markdown,
+    list_records,
+    load_record_json,
+    save_record,
+    search_records,
+)
 from bagua.service import perform_divination
 from bagua.timezone import label_for_timezone, parse_datetime_input
 from bagua.user_prefs import stored_coin_tosses_to_points
@@ -129,13 +139,19 @@ def _update_config_from_args(
     return config
 
 
-def run_list_records() -> int:
-    records = list_records()
+def run_list_records(*, search: str | None = None) -> int:
+    records = search_records(search) if search and search.strip() else list_records()
     if not records:
-        console.print("[dim]暂无占卜记录。[/dim]")
+        if search and search.strip():
+            console.print(f"[dim]未找到匹配「{search}」的记录。[/dim]")
+        else:
+            console.print("[dim]暂无占卜记录。[/dim]")
         return 0
 
-    table = Table(title="占卜历史记录", show_lines=True)
+    title = "占卜历史记录"
+    if search and search.strip():
+        title = f"占卜历史记录 · 搜索「{search.strip()}」"
+    table = Table(title=title, show_lines=True)
     table.add_column("#", justify="right", style="cyan")
     table.add_column("时间", style="dim")
     table.add_column("卦名")
@@ -152,6 +168,30 @@ def run_list_records() -> int:
         )
     console.print(table)
     console.print("[dim]查看：bagua --show-record <序号或文件名>[/dim]")
+    console.print("[dim]导出：bagua --export-record <ID> -o out.md[/dim]")
+    return 0
+
+
+def run_export_record(identifier: str, *, output: str | None = None) -> int:
+    out_path = Path(output).expanduser() if output else None
+    path = export_record_markdown(identifier, out_path)
+    if path is None:
+        console.print(f"[red]未找到记录或导出失败：{identifier}[/red]")
+        return 1
+    console.print(f"[green]已导出 Markdown：{path}[/green]")
+    return 0
+
+
+def run_export_records(*, search: str | None = None, output: str | None = None) -> int:
+    out_path = Path(output).expanduser() if output else None
+    path = export_records_markdown(query=search, output_path=out_path)
+    if path is None:
+        if search and search.strip():
+            console.print(f"[dim]未找到匹配「{search}」的记录，未生成文件。[/dim]")
+        else:
+            console.print("[dim]暂无占卜记录可导出。[/dim]")
+        return 1
+    console.print(f"[green]已导出 {path}[/green]")
     return 0
 
 
@@ -264,7 +304,11 @@ def run_headless_divination(args: CliArgs) -> int:
 
 def dispatch_headless(args: CliArgs) -> int:
     if args.list_records:
-        return run_list_records()
+        return run_list_records(search=args.search)
+    if args.export_record:
+        return run_export_record(args.export_record, output=args.markdown_out)
+    if args.export_records:
+        return run_export_records(search=args.search, output=args.markdown_out)
     if args.show_record:
         return run_show_record(args.show_record)
     if args.delete_record:

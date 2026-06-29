@@ -72,6 +72,20 @@ def _solar_term_month_number(month_zhi_index: int) -> int:
     return ((month_zhi_index + 10) % 12) + 1
 
 
+def _solar_term_year_number(solar, lunar) -> int:
+    """节气历年数：以立春交接为界，与 getYearInGanZhiExact 口径一致。"""
+    solar_year = solar.getYear()
+    jie_qi_table = lunar.getJieQiTable()
+    li_chun = jie_qi_table.get("立春")
+    if li_chun is None:
+        li_chun = jie_qi_table["LI_CHUN"]
+    if li_chun.getYear() != solar_year:
+        li_chun = jie_qi_table.get("LI_CHUN") or li_chun
+    if solar.toYmdHms() < li_chun.toYmdHms():
+        return solar_year - 1
+    return solar_year
+
+
 def solar_term_components_from_datetime(dt: datetime) -> SolarTermComponents:
     """由公历时刻提取节气历数字分量（立春换年、节气换月）。"""
     _require_lunar()
@@ -81,7 +95,7 @@ def solar_term_components_from_datetime(dt: datetime) -> SolarTermComponents:
     lunar = solar.getLunar()
     hour_idx = lunar.getTimeZhiIndex() + 1
     return SolarTermComponents(
-        year=lunar.getYear(),
+        year=_solar_term_year_number(solar, lunar),
         month=_solar_term_month_number(lunar.getMonthZhiIndexExact()),
         day=lunar.getDay(),
         hour=hour_idx,
