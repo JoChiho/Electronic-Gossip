@@ -7,7 +7,8 @@ from tkinter import messagebox, ttk
 
 from bagua.bazi import compute_bazi
 from bagua.config import CONFIG_PATH, save_config
-from bagua.divination import parse_number_input, tosses_to_yao_value
+from bagua.data import MANUAL_CHANGING_OPTIONS, TRIGRAM_SELECT_OPTIONS
+from bagua.divination import parse_manual_changing, parse_number_input, parse_trigram_index, tosses_to_yao_value
 from bagua.locations import (
     LOCATION_CUSTOM,
     LOCATION_FOLLOW_TZ,
@@ -52,6 +53,10 @@ class GuiFormsMixin:
     number_n1_var: tk.StringVar
     number_n2_var: tk.StringVar
     number_n3_var: tk.StringVar
+    manual_frame: ttk.LabelFrame
+    manual_upper_var: tk.StringVar
+    manual_lower_var: tk.StringVar
+    manual_changing_var: tk.StringVar
     use_now_var: tk.BooleanVar
     calendar_var: tk.StringVar
     time_input_var: tk.StringVar
@@ -159,6 +164,7 @@ class GuiFormsMixin:
             ("time", "时间起卦"),
             ("random", "随机起卦"),
             ("number", "数字起卦"),
+            ("manual", "手动选卦"),
         ]
         method_row = ttk.Frame(frame, style="Card.TFrame")
         method_row.grid(row=0, column=0, columnspan=3, sticky=tk.W)
@@ -337,6 +343,48 @@ class GuiFormsMixin:
                 row=2, column=col, sticky=tk.W, padx=(0, 8),
             )
 
+    def _trigram_option(self, idx: int) -> str:
+        if 1 <= idx <= 8:
+            return TRIGRAM_SELECT_OPTIONS[idx - 1]
+        return TRIGRAM_SELECT_OPTIONS[0]
+
+    def _build_manual_section(self, parent: ttk.Frame) -> None:
+        self.manual_frame = ttk.LabelFrame(
+            parent, text="  手动选卦  ", style="Section.TLabelframe", padding=12
+        )
+        self.manual_frame.pack(fill=tk.X, pady=(0, 8))
+
+        ttk.Label(
+            self.manual_frame,
+            text="选定上卦、下卦（乾1…坤8）；动爻可选，选「无」则为全静卦",
+            style="Muted.TLabel",
+            wraplength=360,
+        ).grid(row=0, column=0, columnspan=4, sticky=tk.W)
+
+        self.manual_upper_var = tk.StringVar(value=self._trigram_option(1))
+        self.manual_lower_var = tk.StringVar(value=self._trigram_option(8))
+        self.manual_changing_var = tk.StringVar(value=MANUAL_CHANGING_OPTIONS[0])
+
+        fields = (
+            ("上卦", self.manual_upper_var),
+            ("下卦", self.manual_lower_var),
+            ("动爻", self.manual_changing_var),
+        )
+        for col, (label, var) in enumerate(fields):
+            ttk.Label(self.manual_frame, text=label, style="Field.TLabel").grid(
+                row=1, column=col, sticky=tk.W, padx=(0, 10), pady=(10, 4),
+            )
+            values = TRIGRAM_SELECT_OPTIONS if col < 2 else MANUAL_CHANGING_OPTIONS
+            combo = ttk.Combobox(
+                self.manual_frame,
+                textvariable=var,
+                values=values,
+                state="readonly",
+                width=14,
+            )
+            combo.grid(row=2, column=col, sticky=tk.W, padx=(0, 10))
+            combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
+
     def _bind_autosave(self) -> None:
         for var in (
             self.question_var,
@@ -458,6 +506,7 @@ class GuiFormsMixin:
         self.coin_frame.pack_forget()
         self.time_frame.pack_forget()
         self.number_frame.pack_forget()
+        self.manual_frame.pack_forget()
         if method == "coin":
             self.coin_frame.pack(fill=tk.X, pady=(0, 4))
             self._on_coin_mode_changed()
@@ -465,6 +514,8 @@ class GuiFormsMixin:
             self.time_frame.pack(fill=tk.X, pady=(0, 4))
         elif method == "number":
             self.number_frame.pack(fill=tk.X, pady=(0, 4))
+        elif method == "manual":
+            self.manual_frame.pack(fill=tk.X, pady=(0, 4))
         self._schedule_save()
 
     def _on_coin_mode_changed(self) -> None:
@@ -551,6 +602,31 @@ class GuiFormsMixin:
             use_true_solar_divination=self.use_true_solar_div_var.get(),
         )
 
+    def _collect_manual_selection(self) -> tuple[int, int, int | None] | None:
+        upper = parse_trigram_index(self.manual_upper_var.get())
+        lower = parse_trigram_index(self.manual_lower_var.get())
+        if upper is None or lower is None:
+            return None
+        changing = parse_manual_changing(self.manual_changing_var.get())
+        return upper, lower, changing
+
+    def _load_manual_from_config(self, cfg: UserConfig) -> None:
+        upper = cfg.manual_upper if 1 <= cfg.manual_upper <= 8 else 1
+        lower = cfg.manual_lower if 1 <= cfg.manual_lower <= 8 else 8
+        self.manual_upper_var.set(self._trigram_option(upper))
+        self.manual_lower_var.set(self._trigram_option(lower))
+        if cfg.manual_changing and 1 <= cfg.manual_changing <= 6:
+            self.manual_changing_var.set(MANUAL_CHANGING_OPTIONS[cfg.manual_changing])
+        else:
+            self.manual_changing_var.set(MANUAL_CHANGING_OPTIONS[0])
+
+    def _manual_state_from_form(self) -> tuple[int, int, int]:
+        sel = self._collect_manual_selection()
+        if sel is None:
+            return 1, 8, 0
+        upper, lower, changing = sel
+        return upper, lower, 0 if changing is None else changing
+
     def _collect_number_inputs(self) -> list[int] | None:
         parts = [
             self.number_n1_var.get().strip(),
@@ -609,12 +685,13 @@ class GuiFormsMixin:
             self.birth_var.set(cfg.birth_datetime)
             self.coin_mode_var.set(cfg.coin_mode if cfg.coin_mode in ("manual", "auto") else "manual")
             self.calendar_var.set(cfg.calendar_mode if cfg.calendar_mode in ("solar", "lunar") else "solar")
-            valid_methods = ("coin", "time", "random", "number")
+            valid_methods = ("coin", "time", "random", "number", "manual")
             self.method_var.set(cfg.last_method if cfg.last_method in valid_methods else "coin")
             self.use_now_var.set(cfg.use_current_time)
             self.time_input_var.set(cfg.time_input)
             self._load_coin_tosses_from_config(cfg)
             self._load_number_inputs_from_config(cfg)
+            self._load_manual_from_config(cfg)
 
             labels = [label for _, label in TIMEZONE_PRESETS]
             if cfg.region_label in labels:
@@ -657,6 +734,7 @@ class GuiFormsMixin:
     def _persist_config_from_form(self) -> None:
         birth_iana, birth_region = self._selected_birth_timezone()
         div_iana, div_region = self._selected_divination_timezone()
+        manual_upper, manual_lower, manual_changing = self._manual_state_from_form()
         self._config = UserConfig(
             timezone=birth_iana,
             region_label=birth_region,
@@ -675,6 +753,9 @@ class GuiFormsMixin:
             time_input=self.time_input_var.get().strip(),
             coin_tosses=self._collect_coin_tosses_state(),
             number_inputs=self._collect_number_inputs_state(),
+            manual_upper=manual_upper,
+            manual_lower=manual_lower,
+            manual_changing=manual_changing,
             birth_location=self._current_birth_location(),
             divination_location=self._current_div_location(),
             birth_longitude=self._effective_birth_longitude(),

@@ -101,6 +101,21 @@ def test_perform_divination_auto_bazi():
     assert "庚午" in result.prompt
 
 
+def test_perform_divination_manual():
+    result = perform_divination("manual", _ctx(), manual_upper=1, manual_lower=8, manual_changing=3)
+    assert result.hexagram.name == "天地否"
+    assert result.yao_values == [8, 8, 6, 7, 7, 7]
+    assert "手动选卦" in result.method_desc
+    assert "【方法论·手动选卦】" in result.prompt
+
+
+def test_perform_divination_manual_static():
+    result = perform_divination("manual", _ctx(), manual_upper=1, manual_lower=1, manual_changing=None)
+    assert result.hexagram.name == "乾为天"
+    assert all(v in (7, 8) for v in result.yao_values)
+    assert result.hexagram.changed_hexagram is None
+
+
 def test_perform_divination_number():
     result = perform_divination("number", _ctx(), number_inputs=[3, 8, 5])
     assert result.yao_values == [8, 8, 8, 7, 6, 7]

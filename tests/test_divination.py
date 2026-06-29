@@ -8,7 +8,10 @@ from bagua.divination import (
     divinate_by_numbers,
     divinate_by_time,
     divinate_coin,
+    divinate_manual,
+    parse_manual_changing,
     parse_number_input,
+    parse_trigram_index,
     tosses_to_yao_value,
 )
 from bagua.hexagram import build_hexagram
@@ -72,6 +75,38 @@ def test_divinate_by_numbers_two_inputs():
     assert values == [8, 8, 8, 7, 6, 7]
     assert "(3+8)=11" in desc
     assert "第5爻" in desc
+
+
+def test_parse_trigram_index():
+    assert parse_trigram_index("1") == 1
+    assert parse_trigram_index("1 乾 ☰") == 1
+    assert parse_trigram_index("坤") == 8
+
+
+def test_parse_manual_changing():
+    assert parse_manual_changing(0) is None
+    assert parse_manual_changing(3) == 3
+    assert parse_manual_changing("三爻") == 3
+    assert parse_manual_changing("无（静卦）") is None
+
+
+def test_divinate_manual_qian_upper_kun_lower_line3():
+    values, desc = divinate_manual(1, 8, 3)
+    assert values == [8, 8, 6, 7, 7, 7]
+    hexagram = build_hexagram(values)
+    assert hexagram.name == "天地否"
+    assert hexagram.changed_hexagram is not None
+    assert hexagram.changed_hexagram.name == "天山遁"
+    assert "乾" in desc and "坤" in desc
+
+
+def test_divinate_manual_pure_qian_static():
+    values, desc = divinate_manual(1, 1, None)
+    assert values == [7, 7, 7, 7, 7, 7]
+    hexagram = build_hexagram(values)
+    assert hexagram.name == "乾为天"
+    assert hexagram.changed_hexagram is None
+    assert "无动爻" in desc
 
 
 def test_divinate_by_time_lunar_mode():

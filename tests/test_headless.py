@@ -32,6 +32,20 @@ def test_headless_number_output(capsys):
     assert "火地晋" in captured.out
 
 
+def test_headless_manual_output(capsys):
+    args = parse_cli_args([
+        "--method", "manual",
+        "--upper", "1",
+        "--lower", "8",
+        "--changing", "3",
+        "--output", "hexagram",
+        "--no-copy",
+    ])
+    code = run_headless_divination(args)
+    assert code == 0
+    assert "天地否" in capsys.readouterr().out
+
+
 def test_headless_list_empty(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr("bagua.records.RECORDS_DIR", tmp_path / "records")
     code = run_list_records()

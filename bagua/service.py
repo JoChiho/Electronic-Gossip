@@ -6,7 +6,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from bagua.bazi import maybe_auto_bazi
-from bagua.divination import divinate_by_numbers, divinate_by_random, divinate_by_time, divinate_coin
+from bagua.divination import (
+    divinate_by_numbers,
+    divinate_by_random,
+    divinate_by_time,
+    divinate_coin,
+    divinate_manual,
+)
 from bagua.hexagram import build_hexagram
 from bagua.models import DivinationMethod, DivinationResult, UserContext
 from bagua.prompt import generate_ai_prompt
@@ -52,6 +58,9 @@ def perform_divination(
     coin_tosses: list[list[int]] | None = None,
     divination_datetime: datetime | None = None,
     number_inputs: list[int] | None = None,
+    manual_upper: int | None = None,
+    manual_lower: int | None = None,
+    manual_changing: int | None = None,
     coin_mode: str = "manual",
     auto_bazi: bool = True,
     rng: Random | None = None,
@@ -126,6 +135,12 @@ def perform_divination(
         n1, n2 = number_inputs[0], number_inputs[1]
         n3 = number_inputs[2] if len(number_inputs) == 3 else None
         values, method_desc = divinate_by_numbers(n1, n2, n3)
+        divination_time = format_datetime_with_tz(dt_now, context.divination_tz)
+    elif method == "manual":
+        if manual_upper is None or manual_lower is None:
+            raise ValueError("手动选卦需要指定上卦与下卦（1～8）")
+        changing = None if not manual_changing else manual_changing
+        values, method_desc = divinate_manual(manual_upper, manual_lower, changing)
         divination_time = format_datetime_with_tz(dt_now, context.divination_tz)
     else:
         raise ValueError(f"未知起卦方式: {method}")

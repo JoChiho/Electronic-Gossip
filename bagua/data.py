@@ -30,4 +30,11 @@ METHOD_LABELS = {
     "time": "时间起卦",
     "random": "随机起卦",
     "number": "数字起卦",
+    "manual": "手动选卦",
 }
+
+TRIGRAM_SELECT_OPTIONS: list[str] = [
+    f"{i} {t['name']} {t['symbol']}" for i, t in enumerate(TRIGRAMS, start=1)
+]
+
+MANUAL_CHANGING_OPTIONS: list[str] = ["无（静卦）", *YAO_POSITIONS]

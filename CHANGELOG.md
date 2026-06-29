@@ -2,6 +2,16 @@
 
 本文件记录 bagua 各版本变更，格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.10.1] - 2026-06-29
+
+### Added
+
+- **手动选卦**：直接指定上卦、下卦（乾1…坤8）与可选动爻
+- 无动爻时全静卦（7/8），本卦与之卦相同
+- CLI：`bagua -m manual --upper 1 --lower 8 --changing 3`（`--changing 0` 为静卦）
+- GUI：上卦/下卦/动爻 Combobox；`UserConfig.manual_upper` / `manual_lower` / `manual_changing`
+- AI 提示词【方法论·手动选卦】
+
 ## [0.10.0] - 2026-06-29
 
 ### Added

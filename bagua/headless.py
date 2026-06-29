@@ -21,7 +21,7 @@ from bagua.records import (
     save_record,
     search_records,
 )
-from bagua.divination import parse_number_input
+from bagua.divination import parse_manual_changing, parse_number_input
 from bagua.service import perform_divination
 from bagua.timezone import label_for_timezone, parse_datetime_input
 from bagua.user_prefs import stored_coin_tosses_to_points
@@ -118,6 +118,35 @@ def _resolve_number_inputs(args: CliArgs, config: UserConfig) -> list[int] | Non
     )
 
 
+def _resolve_manual_selection(
+    args: CliArgs,
+    config: UserConfig,
+) -> tuple[int, int, int | None]:
+    if args.method != "manual":
+        raise ValueError("internal: manual selection resolver called for wrong method")
+
+    upper = args.upper if args.upper is not None else config.manual_upper
+    lower = args.lower if args.lower is not None else config.manual_lower
+    changing_raw = args.changing if args.changing is not None else config.manual_changing
+
+    if not 1 <= upper <= 8 or not 1 <= lower <= 8:
+        raise ValueError("上卦与下卦序号须在 1～8（乾1…坤8）")
+
+    changing = parse_manual_changing(changing_raw)
+    if changing is None and changing_raw not in (None, 0, "0"):
+        if isinstance(changing_raw, int) or (isinstance(changing_raw, str) and changing_raw.strip().isdigit()):
+            raise ValueError("动爻须在 1～6，或 0 表示无动爻")
+        raise ValueError(f"动爻无效：{changing_raw}")
+
+    if args.upper is None and args.lower is None and args.changing is None:
+        if not 1 <= config.manual_upper <= 8 or not 1 <= config.manual_lower <= 8:
+            raise ValueError(
+                "手动选卦需要 --upper / --lower，或在 config.json 中设置 manual_upper / manual_lower"
+            )
+
+    return upper, lower, changing
+
+
 def _resolve_coin_tosses(args: CliArgs, config: UserConfig) -> list[list[int]] | None:
     coin_mode = args.coin_mode or config.coin_mode
     if args.method != "coin" or coin_mode != "manual":
@@ -162,6 +191,13 @@ def _update_config_from_args(
             while len(padded) < 3:
                 padded.append("")
             config.number_inputs = padded[:3]
+    if args.method == "manual":
+        if args.upper is not None:
+            config.manual_upper = args.upper
+        if args.lower is not None:
+            config.manual_lower = args.lower
+        if args.changing is not None:
+            config.manual_changing = args.changing
     if args.calendar:
         config.calendar_mode = args.calendar
     if args.auto_bazi is not None:
@@ -262,6 +298,9 @@ def run_headless_divination(args: CliArgs) -> int:
         divination_dt, lunar_input = _resolve_divination_datetime(args, config, ctx)
         coin_tosses = _resolve_coin_tosses(args, config)
         number_inputs = _resolve_number_inputs(args, config)
+        manual_upper = manual_lower = manual_changing = None
+        if args.method == "manual":
+            manual_upper, manual_lower, manual_changing = _resolve_manual_selection(args, config)
     except ValueError as exc:
         console.print(f"[red]{exc}[/red]")
         return 1
@@ -291,6 +330,9 @@ def run_headless_divination(args: CliArgs) -> int:
         coin_tosses=coin_tosses,
         divination_datetime=divination_dt,
         number_inputs=number_inputs,
+        manual_upper=manual_upper,
+        manual_lower=manual_lower,
+        manual_changing=manual_changing,
         coin_mode=coin_mode,
         auto_bazi=auto_bazi,
     )

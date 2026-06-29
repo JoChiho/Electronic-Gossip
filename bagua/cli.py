@@ -21,6 +21,7 @@ from bagua.cli_guide import (
     show_method_guide,
     show_pre_result_summary,
     show_quick_start,
+    show_manual_guide,
     show_number_guide,
     show_random_guide,
     show_step,
@@ -36,10 +37,13 @@ from bagua.config import (
     save_config,
 )
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
+from bagua.data import TRIGRAMS
 from bagua.divination import (
     coin_tosses_to_display,
     parse_coin_input,
+    parse_manual_changing,
     parse_number_input,
+    parse_trigram_index,
     simulate_coin_toss,
 )
 from bagua.headless import dispatch_headless
@@ -204,22 +208,22 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
     return build_user_context(config), config
 
 
-def select_method(default: str = "coin") -> Literal["coin", "time", "random", "number"]:
+def select_method(default: str = "coin") -> Literal["coin", "time", "random", "number", "manual"]:
     show_step(console, 2, "选择起卦方式")
     show_method_guide(console)
     default = normalize_method(default)
     default_label = METHOD_LABELS[default]
     console.print(f"[dim]直接回车 = 沿用上次：{default_label}[/dim]")
-    console.print("[dim]或输入 1–4 选择其他方式[/dim]\n")
+    console.print("[dim]或输入 1–5 选择其他方式[/dim]\n")
 
     mapping = {**METHOD_NUM_TO_KEY, "": default}
     while True:
-        choice = console.input(f"你的选择 [1/2/3/4，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
+        choice = console.input(f"你的选择 [1/2/3/4/5，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
         if choice in mapping:
             picked = mapping[choice]
             console.print(f"[green]✓[/green] 已选择：{METHOD_LABELS[picked]}")
             return picked  # type: ignore[return-value]
-        console.print("[red]请输入 1、2、3、4，或直接回车。[/red]")
+        console.print("[red]请输入 1、2、3、4、5，或直接回车。[/red]")
 
 
 def _select_coin_mode(default: str) -> str:
@@ -306,6 +310,53 @@ def _select_calendar_mode(default: str) -> str:
         console.print("[red]请输入 1、2，或直接回车。[/red]")
 
 
+def collect_manual_selection(config: UserConfig) -> tuple[int, int, int | None]:
+    show_manual_guide(console)
+    default_upper = str(config.manual_upper or 1)
+    default_lower = str(config.manual_lower or 8)
+    default_changing = str(config.manual_changing or 0)
+
+    while True:
+        raw_upper = console.input(
+            f"上卦序号 1～8 [默认 {default_upper} {TRIGRAMS[int(default_upper) - 1]['name']}]: ",
+        ).strip() or default_upper
+        upper = parse_trigram_index(raw_upper)
+        if upper is None:
+            console.print("[red]无效上卦，请输入 1～8 或卦名。[/red]")
+            continue
+        break
+
+    while True:
+        raw_lower = console.input(
+            f"下卦序号 1～8 [默认 {default_lower} {TRIGRAMS[int(default_lower) - 1]['name']}]: ",
+        ).strip() or default_lower
+        lower = parse_trigram_index(raw_lower)
+        if lower is None:
+            console.print("[red]无效下卦，请输入 1～8 或卦名。[/red]")
+            continue
+        break
+
+    while True:
+        raw_changing = console.input(
+            f"动爻 1～6，0=无 [默认 {default_changing}]: ",
+        ).strip() or default_changing
+        changing = parse_manual_changing(raw_changing)
+        if changing is not None or raw_changing in ("0", "无", "无（静卦）", "静卦", "none", ""):
+            break
+        console.print("[red]动爻须为 0（无）或 1～6。[/red]")
+
+    config.manual_upper = upper
+    config.manual_lower = lower
+    config.manual_changing = 0 if changing is None else changing
+    upper_name = TRIGRAMS[upper - 1]["name"]
+    lower_name = TRIGRAMS[lower - 1]["name"]
+    if changing is None:
+        console.print(f"[green]✓[/green] {upper_name}上{lower_name}下 · 静卦")
+    else:
+        console.print(f"[green]✓[/green] {upper_name}上{lower_name}下 · 第{changing}爻动")
+    return upper, lower, changing
+
+
 def collect_number_inputs(config: UserConfig) -> list[int]:
     show_number_guide(console)
     stored = config.number_inputs or []
@@ -330,12 +381,20 @@ def collect_divination_params(
     method: str,
     ctx: UserContext,
     config: UserConfig,
-) -> tuple[list[list[int]] | None, object | None, list[int] | None, str, UserContext]:
+) -> tuple[
+    list[list[int]] | None,
+    object | None,
+    list[int] | None,
+    tuple[int, int, int | None] | None,
+    str,
+    UserContext,
+]:
     show_step(console, 3, "起卦操作")
 
     coin_tosses: list[list[int]] | None = None
     divination_datetime = None
     number_inputs: list[int] | None = None
+    manual_selection: tuple[int, int, int | None] | None = None
     coin_mode = ctx.coin_mode
     lunar_input: str | None = None
     calendar_mode = ctx.calendar_mode
@@ -400,6 +459,8 @@ def collect_divination_params(
         console.print("[green]✓[/green] 准备随机起卦")
     elif method == "number":
         number_inputs = collect_number_inputs(config)
+    elif method == "manual":
+        manual_selection = collect_manual_selection(config)
 
     updated_ctx = build_user_context(
         config,
@@ -410,7 +471,7 @@ def collect_divination_params(
         calendar_mode=calendar_mode,
         lunar_input=lunar_input,
     )
-    return coin_tosses, divination_datetime, number_inputs, coin_mode, updated_ctx
+    return coin_tosses, divination_datetime, number_inputs, manual_selection, coin_mode, updated_ctx
 
 
 # ---------------------------------------------------------------------------
@@ -508,8 +569,8 @@ def run_interactive() -> None:
     ctx, config = setup_user_context(config)
     method = select_method(config.last_method)
 
-    coin_tosses, divination_dt, number_inputs, coin_mode, ctx = collect_divination_params(
-        method, ctx, config,
+    coin_tosses, divination_dt, number_inputs, manual_selection, coin_mode, ctx = (
+        collect_divination_params(method, ctx, config)
     )
 
     show_pre_result_summary(
@@ -525,6 +586,9 @@ def run_interactive() -> None:
         coin_tosses=coin_tosses,
         divination_datetime=divination_dt,
         number_inputs=number_inputs,
+        manual_upper=manual_selection[0] if manual_selection else None,
+        manual_lower=manual_selection[1] if manual_selection else None,
+        manual_changing=manual_selection[2] if manual_selection else None,
         coin_mode=coin_mode if method == "coin" else ctx.coin_mode,
         auto_bazi=config.auto_bazi,
     )

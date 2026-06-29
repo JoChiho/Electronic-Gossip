@@ -11,7 +11,7 @@
 | 项目 | 说明 |
 |------|------|
 | 名称 | **bagua** — 易经八卦占卜 CLI/GUI |
-| 当前版本 | **v0.10.0** |
+| 当前版本 | **v0.10.1** |
 | 定位 | 起卦 → 生成 AI 提示词 → 用户自行粘贴大模型解读 |
 | 入口 | `bagua`（CLI）/ `bagua-gui`（GUI）/ `dist/*.exe`（Windows 免安装） |
 | 测试 | pytest **80+** 项（目标：发版前全绿） |
@@ -41,6 +41,7 @@
 - 时间起卦（公历 / 农历梅花易数）
 - 随机起卦
 - 数字起卦（梅花报数，2～3 个正整数）
+- 手动选卦（指定上下卦 + 可选动爻，支持全静卦）
 - 八字自动排盘（lunar-python）
 - 六十四卦卦辞摘要 + 爻辞全文（写入 AI 提示词与 Markdown 导出）
 
@@ -74,7 +75,7 @@
 | `~/.bagua/config.json` | 用户偏好（CLI/GUI 共用） |
 | `~/.bagua/records/*.json` | 占卜历史记录 |
 
-`UserConfig` 主要字段：`question`、`bazi`、`birth_datetime`、`timezone`、`coin_mode`、`calendar_mode`、`last_method`、`use_current_time`、`time_input`、`coin_tosses`、`number_inputs`、`auto_copy_prompt`、`auto_bazi` 等。
+`UserConfig` 主要字段：`question`、`bazi`、`birth_datetime`、`timezone`、`coin_mode`、`calendar_mode`、`last_method`、`use_current_time`、`time_input`、`coin_tosses`、`number_inputs`、`manual_upper`、`manual_lower`、`manual_changing`、`auto_copy_prompt`、`auto_bazi` 等。
 
 ---
 
@@ -82,7 +83,8 @@
 
 | 版本 | 日期 | 要点 |
 |------|------|------|
-| **v0.10.0** | 2026-06-29 | 数字起卦（梅花报数）；CLI `--nums`；GUI 报数输入区 |
+| **v0.10.1** | 2026-06-29 | 手动选卦；CLI `--upper/--lower/--changing`；GUI 八卦 Combobox |
+| v0.10.0 | 2026-06-29 | 数字起卦（梅花报数）；CLI `--nums`；GUI 报数输入区 |
 | v0.9.3 | 2026-06-29 | 六十四卦爻辞全文数据，提示词/导出集成 |
 | v0.9.2 | 2026-06-29 | 历史记录搜索、Markdown 导出；GUI 地点/提示词区优化 |
 | v0.9.1 | 2026-06-29 | 出生/起卦时区拆分；八字真太阳时独立；经度分设 |
@@ -148,7 +150,7 @@
 ### P4 — 起卦方式扩展
 
 - [x] 数字起卦 v0.10.0
-- [ ] 手动选卦 v0.10.1
+- [x] 手动选卦 v0.10.1
 - [ ] 蓍草法 v0.10.2
 - [ ] 汉字起卦 v0.11.0
 

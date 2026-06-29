@@ -34,6 +34,9 @@ class CliArgs:
     lunar_at: str | None = None
     auto_bazi: bool | None = None
     nums: str | None = None
+    upper: int | None = None
+    lower: int | None = None
+    changing: int | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,13 +48,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "-m", "--method",
-        choices=["coin", "time", "random", "number"],
+        choices=["coin", "time", "random", "number", "manual"],
         help="起卦方式（指定后进入非交互模式）",
     )
     parser.add_argument(
         "--nums",
         metavar="NUMS",
         help='数字起卦报数，2～3 个正整数，如 "3 8 5"（省略时读取 config.json）',
+    )
+    parser.add_argument("--upper", type=int, metavar="N", help="手动选卦上卦序号 1～8（乾1…坤8）")
+    parser.add_argument("--lower", type=int, metavar="N", help="手动选卦下卦序号 1～8")
+    parser.add_argument(
+        "--changing",
+        type=int,
+        metavar="N",
+        help="手动选卦动爻 1～6；0 或省略为无动爻（静卦）",
     )
     parser.add_argument("-q", "--question", help="占卜问题")
     parser.add_argument("--bazi", help="生辰八字")
@@ -166,4 +177,7 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         lunar_at=ns.lunar_at,
         auto_bazi=False if ns.no_auto_bazi else (True if ns.auto_bazi else None),
         nums=ns.nums,
+        upper=ns.upper,
+        lower=ns.lower,
+        changing=ns.changing,
     )

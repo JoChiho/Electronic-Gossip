@@ -97,7 +97,11 @@ def show_method_guide(console: Console) -> None:
         "\n"
         "4  数字起卦\n"
         "   梅花报数，输入 2～3 个正整数\n"
-        "   适合：心中已有数字、测数起卦"
+        "   适合：心中已有数字、测数起卦\n"
+        "\n"
+        "5  手动选卦\n"
+        "   直接选上卦、下卦与动爻（可无）\n"
+        "   适合：已知卦象、教学对照"
     )
     _panel(console, body, "[bold]起卦方式说明[/bold]", "cyan")
     console.print()
@@ -137,6 +141,16 @@ def show_random_guide(console: Console) -> None:
         "这是最快的起卦方式，适合日常快速占卜。"
     )
     _panel(console, body, "[bold]随机起卦[/bold]", "cyan")
+
+
+def show_manual_guide(console: Console) -> None:
+    body = (
+        "八卦序号（上卦 / 下卦）\n"
+        "  1乾  2兑  3离  4震  5巽  6坎  7艮  8坤\n"
+        "\n"
+        "动爻可选 1～6（初爻至上爻），留空或 0 表示无动爻（全静卦）"
+    )
+    _panel(console, body, "[bold]手动选卦说明[/bold]", "cyan")
 
 
 def show_number_guide(console: Console) -> None:
@@ -194,6 +208,7 @@ METHOD_LABELS = {
     "time": "时间起卦",
     "random": "随机起卦",
     "number": "数字起卦",
+    "manual": "手动选卦",
 }
 
 ARGPARSE_EPILOG = """
@@ -205,6 +220,8 @@ ARGPARSE_EPILOG = """
   bagua -m time --at "2026-06-24 14:30"
   bagua -m time --calendar lunar --lunar-at "2026-05-10 14:30"
   bagua -m number --nums "3 8 5" -q "此事如何"
+  bagua -m manual --upper 1 --lower 8 --changing 3
+  bagua -m manual --upper 1 --lower 1 --changing 0
   bagua --list-records               # 查看历史记录
   bagua --list-records --search 工作 # 搜索历史记录
   bagua --show-record 1              # 查看第 1 条记录
