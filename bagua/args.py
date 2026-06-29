@@ -37,6 +37,7 @@ class CliArgs:
     upper: int | None = None
     lower: int | None = None
     changing: int | None = None
+    yarrow_show_process: bool | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -48,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "-m", "--method",
-        choices=["coin", "time", "random", "number", "manual"],
+        choices=["coin", "time", "random", "number", "manual", "yarrow"],
         help="起卦方式（指定后进入非交互模式）",
     )
     parser.add_argument(
@@ -63,6 +64,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         metavar="N",
         help="手动选卦动爻 1～6；0 或省略为无动爻（静卦）",
+    )
+    parser.add_argument(
+        "--yarrow-show-process",
+        action="store_true",
+        help="蓍草法输出演卦过程（省略时读取 config.json 中的 yarrow_show_process）",
     )
     parser.add_argument("-q", "--question", help="占卜问题")
     parser.add_argument("--bazi", help="生辰八字")
@@ -180,4 +186,5 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         upper=ns.upper,
         lower=ns.lower,
         changing=ns.changing,
+        yarrow_show_process=True if ns.yarrow_show_process else None,
     )

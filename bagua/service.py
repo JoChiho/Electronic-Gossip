@@ -13,6 +13,7 @@ from bagua.divination import (
     divinate_coin,
     divinate_manual,
 )
+from bagua.yarrow import divinate_yarrow
 from bagua.hexagram import build_hexagram
 from bagua.models import DivinationMethod, DivinationResult, UserContext
 from bagua.prompt import generate_ai_prompt
@@ -63,6 +64,7 @@ def perform_divination(
     manual_changing: int | None = None,
     coin_mode: str = "manual",
     auto_bazi: bool = True,
+    yarrow_show_process: bool = False,
     rng: Random | None = None,
 ) -> DivinationResult:
     """
@@ -99,6 +101,8 @@ def perform_divination(
                 use_true_solar_birth=context.use_true_solar_birth,
                 use_true_solar_divination=context.use_true_solar_divination,
             )
+
+    process_log: str | None = None
 
     if method == "coin":
         values, method_desc = divinate_coin(
@@ -142,6 +146,12 @@ def perform_divination(
         changing = None if not manual_changing else manual_changing
         values, method_desc = divinate_manual(manual_upper, manual_lower, changing)
         divination_time = format_datetime_with_tz(dt_now, context.divination_tz)
+    elif method == "yarrow":
+        values, method_desc, process_log = divinate_yarrow(
+            rng,
+            record_steps=yarrow_show_process,
+        )
+        divination_time = format_datetime_with_tz(dt_now, context.divination_tz)
     else:
         raise ValueError(f"未知起卦方式: {method}")
 
@@ -161,4 +171,5 @@ def perform_divination(
         method_desc=method_desc,
         divination_time=divination_time,
         prompt=prompt,
+        process_log=process_log,
     )

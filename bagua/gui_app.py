@@ -165,6 +165,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
         self._build_time_section(self.options_container)
         self._build_number_section(self.options_container)
         self._build_manual_section(self.options_container)
+        self._build_yarrow_section(self.options_container)
 
         self._build_action_section(scroll_frame)
 
@@ -300,7 +301,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                 return
             ctx = self._build_context()
             method = cast(
-                Literal["coin", "time", "random", "number", "manual"],
+                Literal["coin", "time", "random", "number", "manual", "yarrow"],
                 self.method_var.get(),
             )
             coin_tosses = None
@@ -369,6 +370,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                 manual_changing=manual_changing,
                 coin_mode=coin_mode,
                 auto_bazi=self._config.auto_bazi,
+                yarrow_show_process=self.yarrow_show_process_var.get(),
             )
             self._last_result = result
 
@@ -378,6 +380,10 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                 "",
                 format_hexagram_display(result.hexagram),
             ]
+            if result.process_log:
+                result_lines.extend(["", result.process_log])
+            if method == "yarrow" and self.yarrow_show_process_var.get():
+                self._set_yarrow_process_text(result.process_log or "")
             self._set_text_widget(self.result_text, "\n".join(result_lines))
             self._set_text_widget(self.prompt_text, result.prompt)
             self.prompt_text.see("1.0")

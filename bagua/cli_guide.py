@@ -101,7 +101,11 @@ def show_method_guide(console: Console) -> None:
         "\n"
         "5  手动选卦\n"
         "   直接选上卦、下卦与动爻（可无）\n"
-        "   适合：已知卦象、教学对照"
+        "   适合：已知卦象、教学对照\n"
+        "\n"
+        "6  蓍草法\n"
+        "   大衍筮法程序模拟（非实体蓍草）\n"
+        "   适合：体验传统演卦流程"
     )
     _panel(console, body, "[bold]起卦方式说明[/bold]", "cyan")
     console.print()
@@ -141,6 +145,16 @@ def show_random_guide(console: Console) -> None:
         "这是最快的起卦方式，适合日常快速占卜。"
     )
     _panel(console, body, "[bold]随机起卦[/bold]", "cyan")
+
+
+def show_yarrow_guide(console: Console) -> None:
+    body = (
+        "大衍之数五十，其用四十有九。\n"
+        "每爻三变：分二、挂一、揲四、归奇；三变余 24/28/32/36 → 爻值 6/7/8/9。\n"
+        "\n"
+        "本程序为算法模拟，非实体蓍草演算；概率遵循大衍筮法（非三钱法）。"
+    )
+    _panel(console, body, "[bold]蓍草法（大衍模拟）[/bold]", "cyan")
 
 
 def show_manual_guide(console: Console) -> None:
@@ -209,6 +223,7 @@ METHOD_LABELS = {
     "random": "随机起卦",
     "number": "数字起卦",
     "manual": "手动选卦",
+    "yarrow": "蓍草法",
 }
 
 ARGPARSE_EPILOG = """
@@ -222,6 +237,7 @@ ARGPARSE_EPILOG = """
   bagua -m number --nums "3 8 5" -q "此事如何"
   bagua -m manual --upper 1 --lower 8 --changing 3
   bagua -m manual --upper 1 --lower 1 --changing 0
+  bagua -m yarrow --yarrow-show-process
   bagua --list-records               # 查看历史记录
   bagua --list-records --search 工作 # 搜索历史记录
   bagua --show-record 1              # 查看第 1 条记录

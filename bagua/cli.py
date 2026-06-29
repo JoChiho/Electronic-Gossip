@@ -23,6 +23,7 @@ from bagua.cli_guide import (
     show_quick_start,
     show_manual_guide,
     show_number_guide,
+    show_yarrow_guide,
     show_random_guide,
     show_step,
     show_time_guide,
@@ -208,22 +209,22 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
     return build_user_context(config), config
 
 
-def select_method(default: str = "coin") -> Literal["coin", "time", "random", "number", "manual"]:
+def select_method(default: str = "coin") -> Literal["coin", "time", "random", "number", "manual", "yarrow"]:
     show_step(console, 2, "选择起卦方式")
     show_method_guide(console)
     default = normalize_method(default)
     default_label = METHOD_LABELS[default]
     console.print(f"[dim]直接回车 = 沿用上次：{default_label}[/dim]")
-    console.print("[dim]或输入 1–5 选择其他方式[/dim]\n")
+    console.print("[dim]或输入 1–6 选择其他方式[/dim]\n")
 
     mapping = {**METHOD_NUM_TO_KEY, "": default}
     while True:
-        choice = console.input(f"你的选择 [1/2/3/4/5，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
+        choice = console.input(f"你的选择 [1/2/3/4/5/6，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
         if choice in mapping:
             picked = mapping[choice]
             console.print(f"[green]✓[/green] 已选择：{METHOD_LABELS[picked]}")
             return picked  # type: ignore[return-value]
-        console.print("[red]请输入 1、2、3、4、5，或直接回车。[/red]")
+        console.print("[red]请输入 1、2、3、4、5、6，或直接回车。[/red]")
 
 
 def _select_coin_mode(default: str) -> str:
@@ -386,6 +387,7 @@ def collect_divination_params(
     object | None,
     list[int] | None,
     tuple[int, int, int | None] | None,
+    bool,
     str,
     UserContext,
 ]:
@@ -395,6 +397,7 @@ def collect_divination_params(
     divination_datetime = None
     number_inputs: list[int] | None = None
     manual_selection: tuple[int, int, int | None] | None = None
+    yarrow_show_process = False
     coin_mode = ctx.coin_mode
     lunar_input: str | None = None
     calendar_mode = ctx.calendar_mode
@@ -461,6 +464,17 @@ def collect_divination_params(
         number_inputs = collect_number_inputs(config)
     elif method == "manual":
         manual_selection = collect_manual_selection(config)
+    elif method == "yarrow":
+        show_yarrow_guide(console)
+        default_yes = config.yarrow_show_process
+        prompt = "显示演卦过程？[Y/n]: " if default_yes else "显示演卦过程？[y/N]: "
+        if default_yes:
+            show_proc = console.input(prompt).strip().lower() not in ("n", "no")
+        else:
+            show_proc = console.input(prompt).strip().lower() in ("y", "yes")
+        config.yarrow_show_process = show_proc
+        yarrow_show_process = show_proc
+        console.print("[green]✓[/green] 准备蓍草模拟起卦")
 
     updated_ctx = build_user_context(
         config,
@@ -471,7 +485,15 @@ def collect_divination_params(
         calendar_mode=calendar_mode,
         lunar_input=lunar_input,
     )
-    return coin_tosses, divination_datetime, number_inputs, manual_selection, coin_mode, updated_ctx
+    return (
+        coin_tosses,
+        divination_datetime,
+        number_inputs,
+        manual_selection,
+        yarrow_show_process,
+        coin_mode,
+        updated_ctx,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -569,9 +591,15 @@ def run_interactive() -> None:
     ctx, config = setup_user_context(config)
     method = select_method(config.last_method)
 
-    coin_tosses, divination_dt, number_inputs, manual_selection, coin_mode, ctx = (
-        collect_divination_params(method, ctx, config)
-    )
+    (
+        coin_tosses,
+        divination_dt,
+        number_inputs,
+        manual_selection,
+        yarrow_show_process,
+        coin_mode,
+        ctx,
+    ) = collect_divination_params(method, ctx, config)
 
     show_pre_result_summary(
         console,
@@ -591,9 +619,10 @@ def run_interactive() -> None:
         manual_changing=manual_selection[2] if manual_selection else None,
         coin_mode=coin_mode if method == "coin" else ctx.coin_mode,
         auto_bazi=config.auto_bazi,
+        yarrow_show_process=yarrow_show_process if method == "yarrow" else False,
     )
 
-    if method == "time":
+    if method in ("time", "yarrow"):
         console.print(f"\n[dim]{result.method_desc}[/dim]")
 
     config.coin_mode = coin_mode if method == "coin" else ctx.coin_mode
@@ -611,6 +640,9 @@ def run_interactive() -> None:
 
     show_step(console, 4, "查看结果")
     display_hexagram(result.hexagram)
+    if result.process_log:
+        console.print()
+        console.print(result.process_log)
     copied = display_prompt(result.prompt, auto_copy=config.auto_copy_prompt)
     show_completion_guide(console, auto_copied=copied)
 

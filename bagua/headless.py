@@ -202,6 +202,8 @@ def _update_config_from_args(
         config.calendar_mode = args.calendar
     if args.auto_bazi is not None:
         config.auto_bazi = args.auto_bazi
+    if args.yarrow_show_process is not None:
+        config.yarrow_show_process = args.yarrow_show_process
     return config
 
 
@@ -324,6 +326,11 @@ def run_headless_divination(args: CliArgs) -> int:
 
     auto_bazi = config.auto_bazi if args.auto_bazi is None else args.auto_bazi
     coin_mode = args.coin_mode or config.coin_mode
+    yarrow_show_process = (
+        config.yarrow_show_process
+        if args.yarrow_show_process is None
+        else args.yarrow_show_process
+    )
     result = perform_divination(
         args.method,
         ctx,
@@ -335,6 +342,7 @@ def run_headless_divination(args: CliArgs) -> int:
         manual_changing=manual_changing,
         coin_mode=coin_mode,
         auto_bazi=auto_bazi,
+        yarrow_show_process=yarrow_show_process,
     )
 
     config = _update_config_from_args(config, args, ctx)
@@ -349,6 +357,9 @@ def run_headless_divination(args: CliArgs) -> int:
         console.print(f"起卦方法：{result.method_desc}")
         console.print()
         console.print(format_hexagram_display(result.hexagram))
+        if result.process_log:
+            console.print()
+            console.print(result.process_log)
         console.print()
         console.print(result.prompt)
 

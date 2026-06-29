@@ -126,6 +126,17 @@ def test_perform_divination_number():
     assert "体用" in result.prompt
 
 
+def test_perform_divination_yarrow():
+    rng = random.Random(123)
+    result = perform_divination("yarrow", _ctx(), rng=rng, yarrow_show_process=True)
+    assert len(result.yao_values) == 6
+    assert "蓍草法" in result.method_desc
+    assert "模拟" in result.method_desc
+    assert "【方法论·大衍蓍草】" in result.prompt
+    assert result.process_log is not None
+    assert "大衍演卦过程" in result.process_log
+
+
 def test_prompt_includes_hexagram_text():
     div_tz = get_timezone("UTC", "UTC")
     ctx = UserContext(

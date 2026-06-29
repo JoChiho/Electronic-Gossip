@@ -2,6 +2,17 @@
 
 本文件记录 bagua 各版本变更，格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.10.2] - 2026-06-29
+
+### Added
+
+- **蓍草法**（大衍筮法程序模拟）：分二、挂一、揲四、归奇，三变得一爻
+- 模块 `bagua/yarrow.py`；`divinate_yarrow(rng, record_steps=...)`
+- CLI：`bagua -m yarrow`；`--yarrow-show-process` 输出演卦过程；交互选项 6
+- GUI：起卦方式「蓍草法」+「显示演卦过程」展开区
+- AI 提示词【方法论·大衍蓍草】注明非实体蓍草
+- `UserConfig.yarrow_show_process`；`DivinationResult.process_log`
+
 ## [0.10.1] - 2026-06-29
 
 ### Added

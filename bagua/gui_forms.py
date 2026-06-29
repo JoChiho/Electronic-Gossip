@@ -57,6 +57,10 @@ class GuiFormsMixin:
     manual_upper_var: tk.StringVar
     manual_lower_var: tk.StringVar
     manual_changing_var: tk.StringVar
+    yarrow_frame: ttk.LabelFrame
+    yarrow_show_process_var: tk.BooleanVar
+    yarrow_process_frame: ttk.LabelFrame
+    yarrow_process_text: tk.Text
     use_now_var: tk.BooleanVar
     calendar_var: tk.StringVar
     time_input_var: tk.StringVar
@@ -165,6 +169,7 @@ class GuiFormsMixin:
             ("random", "随机起卦"),
             ("number", "数字起卦"),
             ("manual", "手动选卦"),
+            ("yarrow", "蓍草法"),
         ]
         method_row = ttk.Frame(frame, style="Card.TFrame")
         method_row.grid(row=0, column=0, columnspan=3, sticky=tk.W)
@@ -175,7 +180,7 @@ class GuiFormsMixin:
                 variable=self.method_var,
                 value=val,
                 command=self._on_method_changed,
-            ).pack(side=tk.LEFT, padx=(0, 20))
+            ).pack(side=tk.LEFT, padx=(0, 14))
 
         ttk.Label(frame, text="铜钱模式", style="Field.TLabel").grid(row=1, column=0, sticky=tk.W, pady=(10, 0))
         self.coin_mode_var = tk.StringVar(value="manual")
@@ -385,6 +390,64 @@ class GuiFormsMixin:
             combo.grid(row=2, column=col, sticky=tk.W, padx=(0, 10))
             combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
 
+    def _build_yarrow_section(self, parent: ttk.Frame) -> None:
+        self.yarrow_frame = ttk.LabelFrame(
+            parent, text="  蓍草法（大衍模拟）  ", style="Section.TLabelframe", padding=12
+        )
+        self.yarrow_frame.pack(fill=tk.X, pady=(0, 8))
+
+        ttk.Label(
+            self.yarrow_frame,
+            text="五十蓍草取一，用四十九；每爻三变。程序模拟，非实体蓍草。",
+            style="Muted.TLabel",
+            wraplength=360,
+        ).grid(row=0, column=0, columnspan=2, sticky=tk.W)
+
+        self.yarrow_show_process_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            self.yarrow_frame,
+            text="显示演卦过程",
+            variable=self.yarrow_show_process_var,
+            command=self._on_yarrow_show_process_changed,
+        ).grid(row=1, column=0, sticky=tk.W, pady=(10, 0))
+
+        self.yarrow_process_frame = ttk.LabelFrame(
+            self.yarrow_frame, text="  演卦过程  ", style="Section.TLabelframe", padding=8,
+        )
+        self.yarrow_process_text = tk.Text(
+            self.yarrow_process_frame,
+            height=10,
+            width=48,
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+            bg="#faf8f5",
+            fg="#3d3429",
+            relief=tk.FLAT,
+            borderwidth=0,
+        )
+        self.yarrow_process_text.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(
+            self.yarrow_process_frame,
+            text="起卦后在此展示分二、挂一、揲四、归奇步骤",
+            style="Muted.TLabel",
+        ).pack(anchor=tk.W, pady=(6, 0))
+
+    def _on_yarrow_show_process_changed(self) -> None:
+        if self.yarrow_show_process_var.get():
+            self.yarrow_process_frame.grid(
+                row=2, column=0, columnspan=2, sticky=tk.EW, pady=(10, 0),
+            )
+        else:
+            self.yarrow_process_frame.grid_forget()
+        self._schedule_save()
+
+    def _set_yarrow_process_text(self, content: str) -> None:
+        self.yarrow_process_text.configure(state=tk.NORMAL)
+        self.yarrow_process_text.delete("1.0", tk.END)
+        if content:
+            self.yarrow_process_text.insert(tk.END, content)
+        self.yarrow_process_text.configure(state=tk.DISABLED)
+
     def _bind_autosave(self) -> None:
         for var in (
             self.question_var,
@@ -405,6 +468,7 @@ class GuiFormsMixin:
         self.use_now_var.trace_add("write", lambda *_: self._schedule_save())
         self.use_true_solar_birth_var.trace_add("write", lambda *_: self._schedule_save())
         self.use_true_solar_div_var.trace_add("write", lambda *_: self._schedule_save())
+        self.yarrow_show_process_var.trace_add("write", lambda *_: self._schedule_save())
         for row in self._coin_vars:
             for var in row:
                 var.trace_add("write", lambda *_: self._schedule_save())
@@ -507,6 +571,7 @@ class GuiFormsMixin:
         self.time_frame.pack_forget()
         self.number_frame.pack_forget()
         self.manual_frame.pack_forget()
+        self.yarrow_frame.pack_forget()
         if method == "coin":
             self.coin_frame.pack(fill=tk.X, pady=(0, 4))
             self._on_coin_mode_changed()
@@ -516,6 +581,9 @@ class GuiFormsMixin:
             self.number_frame.pack(fill=tk.X, pady=(0, 4))
         elif method == "manual":
             self.manual_frame.pack(fill=tk.X, pady=(0, 4))
+        elif method == "yarrow":
+            self.yarrow_frame.pack(fill=tk.X, pady=(0, 4))
+            self._on_yarrow_show_process_changed()
         self._schedule_save()
 
     def _on_coin_mode_changed(self) -> None:
@@ -685,13 +753,14 @@ class GuiFormsMixin:
             self.birth_var.set(cfg.birth_datetime)
             self.coin_mode_var.set(cfg.coin_mode if cfg.coin_mode in ("manual", "auto") else "manual")
             self.calendar_var.set(cfg.calendar_mode if cfg.calendar_mode in ("solar", "lunar") else "solar")
-            valid_methods = ("coin", "time", "random", "number", "manual")
+            valid_methods = ("coin", "time", "random", "number", "manual", "yarrow")
             self.method_var.set(cfg.last_method if cfg.last_method in valid_methods else "coin")
             self.use_now_var.set(cfg.use_current_time)
             self.time_input_var.set(cfg.time_input)
             self._load_coin_tosses_from_config(cfg)
             self._load_number_inputs_from_config(cfg)
             self._load_manual_from_config(cfg)
+            self.yarrow_show_process_var.set(cfg.yarrow_show_process)
 
             labels = [label for _, label in TIMEZONE_PRESETS]
             if cfg.region_label in labels:
@@ -756,6 +825,7 @@ class GuiFormsMixin:
             manual_upper=manual_upper,
             manual_lower=manual_lower,
             manual_changing=manual_changing,
+            yarrow_show_process=self.yarrow_show_process_var.get(),
             birth_location=self._current_birth_location(),
             divination_location=self._current_div_location(),
             birth_longitude=self._effective_birth_longitude(),

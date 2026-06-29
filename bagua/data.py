@@ -31,6 +31,7 @@ METHOD_LABELS = {
     "random": "随机起卦",
     "number": "数字起卦",
     "manual": "手动选卦",
+    "yarrow": "蓍草法",
 }
 
 TRIGRAM_SELECT_OPTIONS: list[str] = [

@@ -10,6 +10,7 @@ METHOD_NUM_TO_KEY = {
     "3": "random",
     "4": "number",
     "5": "manual",
+    "6": "yarrow",
 }
 METHOD_KEY_TO_NUM = {v: k for k, v in METHOD_NUM_TO_KEY.items()}
 
