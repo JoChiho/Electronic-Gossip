@@ -5,6 +5,8 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
+from bagua.gui_dpi import scaled_font
+
 THEME = {
     "bg": "#141820",
     "surface": "#1e2430",
@@ -22,14 +24,57 @@ THEME = {
     "header_to": "#252d42",
 }
 
-FONT_UI = ("Microsoft YaHei UI", 10)
-FONT_TITLE = ("Microsoft YaHei UI", 18, "bold")
-FONT_SUBTITLE = ("Microsoft YaHei UI", 9)
-FONT_MONO = ("Consolas", 10)
-FONT_SECTION = ("Microsoft YaHei UI", 11, "bold")
+FONT_FAMILY = "Microsoft YaHei UI"
+FONT_MONO_FAMILY = "Consolas"
+
+# 默认字号（96 DPI）；高 DPI 下由 apply_theme(scale=...) 覆盖
+FONT_UI = (FONT_FAMILY, 10)
+FONT_TITLE = (FONT_FAMILY, 18, "bold")
+FONT_HEADER = (FONT_FAMILY, 22, "bold")
+FONT_SUBTITLE = (FONT_FAMILY, 9)
+FONT_MONO = (FONT_MONO_FAMILY, 10)
+FONT_SECTION = (FONT_FAMILY, 11, "bold")
+FONT_ACCENT_BTN = (FONT_FAMILY, 11, "bold")
+FONT_HEADER = (FONT_FAMILY, 22, "bold")
+FONT_SYMBOL = ("Segoe UI Symbol", 18)
+FONT_CANVAS_TITLE = (FONT_FAMILY, 12, "bold")
+FONT_CANVAS_BODY = (FONT_FAMILY, 11)
+FONT_CANVAS_HINT = (FONT_FAMILY, 9)
 
 
-def apply_theme(root: tk.Tk) -> ttk.Style:
+def _build_fonts(scale: float = 1.0) -> dict[str, tuple]:
+    return {
+        "ui": scaled_font(FONT_FAMILY, 10, scale=scale),
+        "title": scaled_font(FONT_FAMILY, 18, "bold", scale=scale),
+        "header": scaled_font(FONT_FAMILY, 22, "bold", scale=scale),
+        "subtitle": scaled_font(FONT_FAMILY, 9, scale=scale),
+        "mono": scaled_font(FONT_MONO_FAMILY, 10, scale=scale),
+        "section": scaled_font(FONT_FAMILY, 11, "bold", scale=scale),
+        "accent_btn": scaled_font(FONT_FAMILY, 11, "bold", scale=scale),
+        "canvas_title": scaled_font(FONT_FAMILY, 12, "bold", scale=scale),
+        "canvas_body": scaled_font(FONT_FAMILY, 11, scale=scale),
+        "canvas_hint": scaled_font(FONT_FAMILY, 9, scale=scale),
+        "symbol": scaled_font("Segoe UI Symbol", 18, scale=scale),
+    }
+
+
+def apply_theme(root: tk.Tk, *, scale: float = 1.0) -> ttk.Style:
+    global FONT_UI, FONT_TITLE, FONT_HEADER, FONT_SUBTITLE, FONT_MONO, FONT_SECTION
+    global FONT_ACCENT_BTN, FONT_SYMBOL, FONT_CANVAS_TITLE, FONT_CANVAS_BODY, FONT_CANVAS_HINT
+
+    fonts = _build_fonts(scale)
+    FONT_UI = fonts["ui"]
+    FONT_TITLE = fonts["title"]
+    FONT_HEADER = fonts["header"]
+    FONT_SUBTITLE = fonts["subtitle"]
+    FONT_MONO = fonts["mono"]
+    FONT_SECTION = fonts["section"]
+    FONT_ACCENT_BTN = fonts["accent_btn"]
+    FONT_SYMBOL = fonts["symbol"]
+    FONT_CANVAS_TITLE = fonts["canvas_title"]
+    FONT_CANVAS_BODY = fonts["canvas_body"]
+    FONT_CANVAS_HINT = fonts["canvas_hint"]
+
     root.configure(bg=THEME["bg"])
     style = ttk.Style(root)
     if "clam" in style.theme_names():
@@ -84,6 +129,7 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         bordercolor=THEME["border"],
         lightcolor=THEME["border"],
         darkcolor=THEME["border"],
+        padding=(4, 6),
     )
     style.configure(
         "TCombobox",
@@ -91,6 +137,7 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         foreground=THEME["text"],
         arrowcolor=THEME["accent"],
         bordercolor=THEME["border"],
+        padding=(4, 6),
     )
     style.map("TCombobox", fieldbackground=[("readonly", THEME["input_bg"])])
     style.configure(
@@ -113,7 +160,7 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         background=THEME["surface_alt"],
         foreground=THEME["text"],
         bordercolor=THEME["border"],
-        padding=(12, 7),
+        padding=(14, 8),
     )
     style.map(
         "TButton",
@@ -124,8 +171,8 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         "Accent.TButton",
         background=THEME["accent_dim"],
         foreground=THEME["text"],
-        font=("Microsoft YaHei UI", 11, "bold"),
-        padding=(20, 10),
+        font=FONT_ACCENT_BTN,
+        padding=(22, 11),
     )
     style.map(
         "Accent.TButton",
@@ -136,7 +183,7 @@ def apply_theme(root: tk.Tk) -> ttk.Style:
         "Ghost.TButton",
         background=THEME["surface"],
         foreground=THEME["text_muted"],
-        padding=(10, 6),
+        padding=(12, 7),
     )
     style.configure(
         "Status.TLabel",

@@ -11,10 +11,20 @@ from bagua.config import load_config
 from bagua.gui_canvas import HexagramCanvas
 from bagua.gui_constants import APP_SUBTITLE, APP_TITLE, DISCLAIMER
 from bagua.gui_display import format_hexagram_display
+from bagua.gui_dpi import configure_root_dpi, enable_windows_dpi_awareness
 from bagua.gui_forms import GuiFormsMixin
 from bagua.gui_history import open_history_window
 from bagua.gui_settings import show_settings_dialog
-from bagua.gui_theme import FONT_MONO, FONT_UI, THEME, apply_theme, style_text_widget
+from bagua.gui_theme import (
+    FONT_HEADER,
+    FONT_MONO,
+    FONT_SUBTITLE,
+    FONT_SYMBOL,
+    FONT_UI,
+    THEME,
+    apply_theme,
+    style_text_widget,
+)
 from bagua.models import DivinationRecord, DivinationResult, UserContext
 from bagua.records import save_record
 from bagua.service import perform_divination
@@ -25,23 +35,26 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title(f"{APP_TITLE} · 易经八卦占卜")
-        self.minsize(900, 760)
-        self.geometry("960x820")
 
         self._config = load_config()
         self._last_result: DivinationResult | None = None
         self._coin_vars: list[list[tk.StringVar]] = []
         self._autosave_job: str | None = None
         self._loading_form = False
+        self._ui_scale = configure_root_dpi(self)
 
-        apply_theme(self)
+        base_w, base_h = 960, 820
+        self.minsize(int(900 * self._ui_scale), int(760 * self._ui_scale))
+        self.geometry(f"{int(base_w * self._ui_scale)}x{int(base_h * self._ui_scale)}")
+
+        apply_theme(self, scale=self._ui_scale)
         self._build_widgets()
         self._load_form_from_config()
         self._bind_autosave()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_header(self, parent: ttk.Frame) -> None:
-        header = tk.Frame(parent, bg=THEME["header_to"], height=88)
+        header = tk.Frame(parent, bg=THEME["header_to"], height=int(88 * self._ui_scale))
         header.pack(fill=tk.X, pady=(0, 12))
         header.pack_propagate(False)
 
@@ -56,21 +69,21 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
             text=APP_TITLE,
             bg=THEME["header_to"],
             fg=THEME["accent"],
-            font=("Microsoft YaHei UI", 22, "bold"),
+            font=FONT_HEADER,
         ).pack(anchor=tk.W)
         tk.Label(
             text_col,
             text=APP_SUBTITLE,
             bg=THEME["header_to"],
             fg=THEME["text_muted"],
-            font=("Microsoft YaHei UI", 10),
+            font=FONT_UI,
         ).pack(anchor=tk.W, pady=(2, 0))
         tk.Label(
             text_col,
             text=DISCLAIMER,
             bg=THEME["header_to"],
             fg=THEME["text_muted"],
-            font=("Microsoft YaHei UI", 8),
+            font=FONT_SUBTITLE,
         ).pack(anchor=tk.W, pady=(6, 0))
 
         right_col = tk.Frame(header, bg=THEME["header_to"])
@@ -81,7 +94,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
             text="☰\n☷",
             bg=THEME["header_to"],
             fg=THEME["accent_dim"],
-            font=("Segoe UI Symbol", 18),
+            font=FONT_SYMBOL,
             justify=tk.CENTER,
         ).pack(pady=(8, 0))
 
@@ -152,7 +165,9 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
         frame = ttk.LabelFrame(parent, text="  卦象结果  ", style="Section.TLabelframe", padding=10)
         frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
 
-        self.hexagram_canvas = HexagramCanvas(frame, width=300, height=250)
+        canvas_w = int(300 * self._ui_scale)
+        canvas_h = int(250 * self._ui_scale)
+        self.hexagram_canvas = HexagramCanvas(frame, width=canvas_w, height=canvas_h, ui_scale=self._ui_scale)
         self.hexagram_canvas.pack(fill=tk.X, pady=(0, 10))
         self.hexagram_canvas.draw_hexagram(None)
 
@@ -302,5 +317,6 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
 
 
 def main() -> None:
+    enable_windows_dpi_awareness()
     app = BaguaGuiApp()
     app.mainloop()
