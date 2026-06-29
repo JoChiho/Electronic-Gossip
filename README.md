@@ -59,6 +59,8 @@ make install-dev
 | `make run` | 启动 CLI |
 | `pytest tests/ -v` | 直接运行测试 |
 | `make clean` | 清理 `__pycache__` |
+| `.\scripts\build.ps1` | 构建 Windows exe（CLI + GUI） |
+| `make build` | 同上（需已安装 build 依赖） |
 
 ### 项目结构
 
@@ -78,8 +80,12 @@ Electronic-Gossip/
 │   ├── models.py / data.py
 │   └── timezone.py         # 时区解析（含 Windows 兼容）
 ├── tests/                  # 单元测试
-├── docs/WORKFLOW.txt       # 开发工作流程与路线图
+├── docs/
+│   ├── WORKFLOW.txt        # 开发工作流程与路线图
+│   └── PROJECT_STATUS.md   # 项目状态（持续更新）
+├── packaging/              # PyInstaller spec
 ├── scripts/setup.ps1       # Windows 环境脚本
+├── scripts/build.ps1       # Windows 打包脚本
 ├── .github/workflows/ci.yml
 ├── bagua.py                # 向后兼容入口
 ├── pyproject.toml
@@ -154,16 +160,72 @@ bagua --delete-record bagua_20260624_120000.json
 }
 ```
 
-## 打包为 exe
+## Windows 免安装版（exe）
+
+### 从 Release 下载（推荐）
+
+在 [GitHub Releases](https://github.com/JoChiho/Electronic-Gossip/releases) 下载 `bagua-vX.Y.Z-win64.zip`，解压后：
+
+| 文件 | 说明 |
+|------|------|
+| `bagua.exe` | 命令行版（双击或终端运行） |
+| `bagua-gui.exe` | 图形界面版（无控制台窗口） |
+
+配置与记录仍保存在 `~/.bagua/`。首次运行若遇 SmartScreen 提示，请参阅 **[docs/WINDOWS_INSTALL.md](docs/WINDOWS_INSTALL.md)**。
+
+### 自行打包
+
+```powershell
+# 安装构建依赖 + 运行测试 + 生成 exe
+.\scripts\setup.ps1 -Dev
+.\scripts\build.ps1
+
+# 可选：打成 Release zip
+.\scripts\package_release.ps1
+```
+
+产物位于 `dist/bagua.exe` 与 `dist/bagua-gui.exe`。
+
+推送版本 tag 可触发自动 Release 构建：
 
 ```bash
-pip install pyinstaller
-pyinstaller --onefile --name bagua --console bagua.py
+git tag v0.7.0
+git push origin v0.7.0
 ```
+
+### 项目状态文档
+
+开发进展、已知限制与后续规划见 **[docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)**（每次发版更新）。
 
 ## 问题记录与版本历史
 
-### v0.6.0（当前）
+### v0.8.1（当前）
+
+| 变更 | 说明 |
+|------|------|
+| GUI 模块拆分 | `gui_app` / `gui_forms` / `gui_history` / `gui_constants` |
+| 代码质量 | CI 接入 ruff + mypy；`Makefile lint` / `typecheck` |
+| 发版联动 | `CHANGELOG.md` + `scripts/check_release.py` |
+
+### v0.8.0
+
+| 变更 | 说明 |
+|------|------|
+| CLI/GUI 配置互通 | 起卦方式、铜钱输入、时间选项跨入口共享 |
+| GUI 设置面板 | 自动排盘 / 自动复制 / 卦辞开关 |
+| 非交互增强 | 读取 config；`--no-copy` 关闭自动复制 |
+| Windows 安装说明 | `docs/WINDOWS_INSTALL.md` |
+
+### v0.7.0
+
+| 变更 | 说明 |
+|------|------|
+| PyInstaller 双版本 | `bagua.exe` + `bagua-gui.exe` |
+| 构建脚本 | `scripts/build.ps1` / `Makefile build` |
+| Release CI | push tag `v*` 自动构建 zip |
+| 项目状态文档 | `docs/PROJECT_STATUS.md` |
+
+### v0.6.0
 
 | 变更 | 说明 |
 |------|------|
@@ -225,7 +287,7 @@ pyinstaller --onefile --name bagua --console bagua.py
 | 2 | Tkinter 简易 GUI | ✅ 已完成 |
 | 3 | CLI 参数、历史记录、体验优化 | ✅ 已完成 |
 | 4 | 八字排盘、农历起卦 | ✅ 已完成 |
-| 5 | PyInstaller 双版本打包发布 | 待开始 |
+| 5 | PyInstaller 双版本打包发布 | ✅ 已完成 |
 
 ## License
 

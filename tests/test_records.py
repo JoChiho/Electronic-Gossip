@@ -1,6 +1,5 @@
 """历史记录管理测试。"""
 
-import json
 
 from bagua.hexagram import build_hexagram
 from bagua.models import DivinationRecord

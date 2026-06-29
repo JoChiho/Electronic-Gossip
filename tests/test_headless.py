@@ -9,6 +9,7 @@ def test_headless_random_output(capsys):
         "--method", "random",
         "--question", "测试",
         "--output", "prompt",
+        "--no-copy",
     ])
     code = run_headless_divination(args)
     assert code == 0

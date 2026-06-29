@@ -5,7 +5,6 @@ import random
 from bagua.divination import (
     auto_coin_yao_values,
     coin_yao_values_from_tosses,
-    divinate_by_random,
     divinate_by_time,
     divinate_coin,
     tosses_to_yao_value,
@@ -39,6 +38,7 @@ def test_divinate_coin_requires_tosses_for_manual():
 
 def test_divinate_by_time_known_case():
     from datetime import datetime
+
     from bagua.timezone import get_timezone
 
     tz = get_timezone("UTC")
@@ -50,6 +50,7 @@ def test_divinate_by_time_known_case():
 
 def test_divinate_by_time_lunar_mode():
     from datetime import datetime
+
     from bagua.timezone import get_timezone
 
     tz = get_timezone("Asia/Shanghai", "中国")

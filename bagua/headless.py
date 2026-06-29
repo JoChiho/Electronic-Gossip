@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import sys
-
 from rich.console import Console
 from rich.table import Table
 
@@ -15,8 +13,10 @@ from bagua.models import DivinationRecord, UserConfig, UserContext
 from bagua.records import delete_record, list_records, load_record_json, save_record
 from bagua.service import perform_divination
 from bagua.timezone import get_timezone, label_for_timezone, parse_datetime_input
+from bagua.user_prefs import stored_coin_tosses_to_points
 
 console = Console()
+stderr_console = Console(stderr=True)
 
 
 def _config_to_context(config: UserConfig, args: CliArgs) -> UserContext:
@@ -26,6 +26,9 @@ def _config_to_context(config: UserConfig, args: CliArgs) -> UserContext:
         region = config.region_label
     tz = get_timezone(tz_name, region)
     calendar_mode = args.calendar or config.calendar_mode
+    lunar_input = args.lunar_at
+    if lunar_input is None and calendar_mode == "lunar" and config.time_input:
+        lunar_input = config.time_input
     return UserContext(
         question=args.question if args.question is not None else config.question,
         bazi=args.bazi if args.bazi is not None else config.bazi,
@@ -33,20 +36,84 @@ def _config_to_context(config: UserConfig, args: CliArgs) -> UserContext:
             args.birth_datetime if args.birth_datetime is not None else config.birth_datetime
         ),
         tz=tz,
-        coin_mode=args.coin_mode,
+        coin_mode=args.coin_mode or config.coin_mode,
         calendar_mode=calendar_mode,
-        lunar_input=args.lunar_at,
+        lunar_input=lunar_input,
         include_hexagram_texts=config.include_hexagram_texts,
     )
 
 
-def _update_config_from_args(config: UserConfig, args: CliArgs, ctx: UserContext) -> UserConfig:
+def _resolve_divination_datetime(
+    args: CliArgs,
+    config: UserConfig,
+    ctx: UserContext,
+) -> tuple[object | None, str | None]:
+    """解析时间起卦时刻，返回 (divination_dt, lunar_input)。"""
+    if args.method != "time":
+        return None, ctx.lunar_input
+
+    if ctx.calendar_mode == "lunar":
+        from bagua.lunar_util import parse_lunar_datetime_input
+
+        if args.lunar_at:
+            if parse_lunar_datetime_input(args.lunar_at) is None:
+                raise ValueError(f"农历时间格式无效：{args.lunar_at}")
+            return None, args.lunar_at
+        if ctx.lunar_input and parse_lunar_datetime_input(ctx.lunar_input):
+            return None, ctx.lunar_input
+        if config.use_current_time:
+            return None, None
+        raise ValueError("农历起卦需 --lunar-at 或在 config.json 中设置 time_input")
+
+    if args.at:
+        dt = parse_datetime_input(args.at, ctx.tz)
+        if dt is None:
+            raise ValueError(f"时间格式无效：{args.at}")
+        return dt, None
+    if config.use_current_time:
+        return None, None
+    if config.time_input:
+        dt = parse_datetime_input(config.time_input, ctx.tz)
+        if dt is None:
+            raise ValueError(f"config 中 time_input 无效：{config.time_input}")
+        return dt, None
+    return None, None
+
+
+def _resolve_coin_tosses(args: CliArgs, config: UserConfig) -> list[list[int]] | None:
+    coin_mode = args.coin_mode or config.coin_mode
+    if args.method != "coin" or coin_mode != "manual":
+        return None
+    tosses = stored_coin_tosses_to_points(config.coin_tosses)
+    if tosses is None:
+        raise ValueError(
+            "铜钱手动模式需要 config.json 中有效的 coin_tosses，"
+            "请先在 CLI/GUI 录入，或使用 --coin-mode auto"
+        )
+    return tosses
+
+
+def _should_copy(args: CliArgs, config: UserConfig) -> bool:
+    if args.no_copy:
+        return False
+    if args.copy:
+        return True
+    return config.auto_copy_prompt
+
+
+def _update_config_from_args(
+    config: UserConfig,
+    args: CliArgs,
+    ctx: UserContext,
+) -> UserConfig:
     config.question = ctx.question
     config.bazi = ctx.bazi
     config.birth_datetime = ctx.birth_datetime
     config.timezone = ctx.tz.iana_name
     config.region_label = ctx.tz.region_label
-    if args.method == "coin":
+    if args.method:
+        config.last_method = args.method
+    if args.method == "coin" and args.coin_mode:
         config.coin_mode = args.coin_mode
     if args.calendar:
         config.calendar_mode = args.calendar
@@ -114,27 +181,33 @@ def run_headless_divination(args: CliArgs) -> int:
     config = load_config()
     ctx = _config_to_context(config, args)
 
-    divination_dt = None
-    if args.method == "time":
-        if ctx.calendar_mode == "lunar" and args.lunar_at:
-            from bagua.lunar_util import parse_lunar_datetime_input
+    try:
+        divination_dt, lunar_input = _resolve_divination_datetime(args, config, ctx)
+        coin_tosses = _resolve_coin_tosses(args, config)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        return 1
 
-            if parse_lunar_datetime_input(args.lunar_at) is None:
-                console.print(f"[red]农历时间格式无效：{args.lunar_at}[/red]")
-                return 1
-        elif args.at:
-            divination_dt = parse_datetime_input(args.at, ctx.tz)
-            if divination_dt is None:
-                console.print(f"[red]时间格式无效：{args.at}[/red]")
-                return 1
+    if lunar_input and lunar_input != ctx.lunar_input:
+        ctx = UserContext(
+            question=ctx.question,
+            bazi=ctx.bazi,
+            birth_datetime=ctx.birth_datetime,
+            tz=ctx.tz,
+            coin_mode=ctx.coin_mode,
+            calendar_mode=ctx.calendar_mode,
+            lunar_input=lunar_input,
+            include_hexagram_texts=ctx.include_hexagram_texts,
+        )
 
     auto_bazi = config.auto_bazi if args.auto_bazi is None else args.auto_bazi
+    coin_mode = args.coin_mode or config.coin_mode
     result = perform_divination(
         args.method,
         ctx,
-        coin_tosses=None,
+        coin_tosses=coin_tosses,
         divination_datetime=divination_dt,
-        coin_mode=args.coin_mode,
+        coin_mode=coin_mode,
         auto_bazi=auto_bazi,
     )
 
@@ -153,11 +226,11 @@ def run_headless_divination(args: CliArgs) -> int:
         console.print()
         console.print(result.prompt)
 
-    if args.copy:
+    if _should_copy(args, config):
         if copy_to_clipboard(result.prompt):
-            console.print("\n[green]提示词已复制到剪贴板[/green]", file=sys.stderr)
+            stderr_console.print("\n[green]提示词已复制到剪贴板[/green]")
         else:
-            console.print("\n[yellow]剪贴板复制失败[/yellow]", file=sys.stderr)
+            stderr_console.print("\n[yellow]剪贴板复制失败[/yellow]")
 
     if args.save_record:
         path = save_record(
@@ -172,7 +245,7 @@ def run_headless_divination(args: CliArgs) -> int:
                 prompt=result.prompt,
             )
         )
-        console.print(f"[green]已保存至 {path}[/green]", file=sys.stderr)
+        stderr_console.print(f"[green]已保存至 {path}[/green]")
 
     return 0
 

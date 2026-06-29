@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from bagua.timezone import TimezoneInfo, parse_datetime_input
-
 try:
     from lunar_python import Lunar, Solar
 except ImportError:  # pragma: no cover - 测试环境会安装依赖

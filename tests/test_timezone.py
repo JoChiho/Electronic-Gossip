@@ -1,16 +1,13 @@
 """时区模块测试。"""
 
-from datetime import datetime, timezone as dt_timezone
-
-import pytest
+from datetime import datetime
 
 from bagua.timezone import (
+    format_datetime_with_tz,
     get_default_timezone,
     get_timezone,
-    is_tzdata_available,
-    format_datetime_with_tz,
-    validate_timezone_name,
     parse_datetime_input,
+    validate_timezone_name,
 )
 
 

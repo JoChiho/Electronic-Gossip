@@ -182,7 +182,8 @@ ARGPARSE_EPILOG = """
 示例：
   bagua                              # 交互模式（逐步引导）
   bagua -m random -q "工作运势"      # 快速随机起卦
-  bagua -m random -q "问题" --copy   # 起卦并复制提示词
+  bagua -m random -q "问题"          # 非交互（默认按 config 自动复制）
+  bagua -m random -q "问题" --no-copy # 禁止自动复制
   bagua -m time --at "2026-06-24 14:30"
   bagua -m time --calendar lunar --lunar-at "2026-05-10 14:30"
   bagua --list-records               # 查看历史记录

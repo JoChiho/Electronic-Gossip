@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import sys
 from typing import Literal
 
 from rich import box
@@ -27,14 +26,13 @@ from bagua.cli_guide import (
     show_time_guide,
     show_user_fields_help,
 )
-from bagua.lunar_util import is_lunar_available, parse_lunar_datetime_input
 from bagua.clipboard import copy_to_clipboard
 from bagua.config import CONFIG_PATH, load_config, save_config
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
 from bagua.divination import coin_tosses_to_display, parse_coin_input, simulate_coin_toss
 from bagua.headless import dispatch_headless
-from bagua.models import DivinationRecord, UserConfig, UserContext, YaoInfo
-from bagua.models import HexagramInfo
+from bagua.lunar_util import is_lunar_available, parse_lunar_datetime_input
+from bagua.models import DivinationRecord, HexagramInfo, UserConfig, UserContext, YaoInfo
 from bagua.records import save_record
 from bagua.service import perform_divination
 from bagua.timezone import (
@@ -47,6 +45,14 @@ from bagua.timezone import (
     now_in_timezone,
     parse_datetime_input,
     validate_timezone_name,
+)
+from bagua.user_prefs import (
+    METHOD_KEY_TO_NUM,
+    METHOD_NUM_TO_KEY,
+    format_stored_coin_tosses,
+    normalize_method,
+    points_to_stored_coin_tosses,
+    stored_coin_tosses_to_points,
 )
 
 console = Console(soft_wrap=True)
@@ -199,18 +205,22 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
     )
 
 
-def select_method() -> Literal["coin", "time", "random"]:
+def select_method(default: str = "coin") -> Literal["coin", "time", "random"]:
     show_step(console, 2, "选择起卦方式")
     show_method_guide(console)
-    console.print("[dim]请输入数字 1–3，然后回车确认[/dim]\n")
+    default = normalize_method(default)
+    default_label = METHOD_LABELS[default]
+    console.print(f"[dim]直接回车 = 沿用上次：{default_label}[/dim]")
+    console.print("[dim]或输入 1–3 选择其他方式[/dim]\n")
 
-    mapping = {"1": "coin", "2": "time", "3": "random"}
+    mapping = {**METHOD_NUM_TO_KEY, "": default}
     while True:
-        choice = console.input("你的选择 [1/2/3]: ").strip()
+        choice = console.input(f"你的选择 [1/2/3，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
         if choice in mapping:
-            console.print(f"[green]✓[/green] 已选择：{METHOD_LABELS[mapping[choice]]}")
-            return mapping[choice]  # type: ignore[return-value]
-        console.print("[red]请输入 1、2 或 3。[/red]")
+            picked = mapping[choice]
+            console.print(f"[green]✓[/green] 已选择：{METHOD_LABELS[picked]}")
+            return picked  # type: ignore[return-value]
+        console.print("[red]请输入 1、2、3，或直接回车。[/red]")
 
 
 def _select_coin_mode(default: str) -> str:
@@ -230,12 +240,20 @@ def _select_coin_mode(default: str) -> str:
         console.print("[red]请输入 1、2，或直接回车。[/red]")
 
 
-def collect_coin_tosses(coin_mode: str) -> tuple[list[list[int]], str]:
+def collect_coin_tosses(coin_mode: str, config: UserConfig) -> tuple[list[list[int]], str]:
     mode = _select_coin_mode(coin_mode)
     tosses: list[list[int]] = []
 
     console.print()
     if mode == "manual":
+        saved = stored_coin_tosses_to_points(config.coin_tosses)
+        if saved:
+            summary = format_stored_coin_tosses(config.coin_tosses)
+            console.print(f"[dim]上次保存的铜钱输入：{summary}[/dim]")
+            if console.input("使用上次保存的铜钱输入？[Y/n]: ").strip().lower() not in ("n", "no"):
+                console.print("[green]✓[/green] 已沿用保存的铜钱输入")
+                return saved, mode
+
         show_coin_value_legend(console)
         console.print()
         for pos in range(1, 7):
@@ -303,33 +321,49 @@ def collect_divination_params(
     calendar_mode = ctx.calendar_mode
 
     if method == "coin":
-        coin_tosses, coin_mode = collect_coin_tosses(ctx.coin_mode)
+        coin_tosses, coin_mode = collect_coin_tosses(ctx.coin_mode, config)
+        if coin_mode == "manual" and coin_tosses:
+            config.coin_tosses = points_to_stored_coin_tosses(coin_tosses)
     elif method == "time":
         calendar_mode = _select_calendar_mode(config.calendar_mode)
         config.calendar_mode = calendar_mode
         dt_now = now_in_timezone(ctx.tz)
         show_time_guide(console, ctx.tz.region_label, format_datetime_with_tz(dt_now, ctx.tz))
         console.print()
-        if console.input("使用当前时间起卦？[Y/n]: ").strip().lower() not in ("n", "no"):
+        use_now_prompt = "使用当前时间起卦？[Y/n]: " if config.use_current_time else "使用当前时间起卦？[y/N]: "
+        if config.use_current_time:
+            use_now = console.input(use_now_prompt).strip().lower() not in ("n", "no")
+        else:
+            use_now = console.input(use_now_prompt).strip().lower() in ("y", "yes")
+        config.use_current_time = use_now
+        if use_now:
             divination_datetime = dt_now
             console.print("[green]✓[/green] 将使用当前时间")
         else:
             if calendar_mode == "lunar":
-                raw = console.input("请输入农历时间（如 2026-05-10 14:30）: ").strip()
+                default_lunar = config.time_input or ""
+                hint = f" [dim]上次 {default_lunar}[/dim]" if default_lunar else ""
+                raw = console.input(f"请输入农历时间（如 2026-05-10 14:30）{hint}: ").strip()
+                raw = raw or default_lunar
                 if parse_lunar_datetime_input(raw) is None:
                     console.print("[yellow]农历格式无效，已自动改用当前时间[/yellow]")
                     divination_datetime = dt_now
+                    config.use_current_time = True
                 else:
                     lunar_input = raw
+                    config.time_input = raw
                     divination_datetime = dt_now
                     console.print(f"[green]✓[/green] 将使用农历输入：{raw}")
             else:
-                raw = console.input("请输入公历时间（如 2026-06-24 14:30）: ").strip()
+                default_time = config.time_input or ""
+                raw = _prompt_with_default("公历起卦时间", default_time, "如 2026-06-24 14:30")
                 divination_datetime = parse_datetime_input(raw, ctx.tz)
                 if divination_datetime is None:
                     console.print("[yellow]时间格式无效，已自动改用当前时间[/yellow]")
                     divination_datetime = dt_now
+                    config.use_current_time = True
                 else:
+                    config.time_input = raw
                     console.print(f"[green]✓[/green] 将使用 {format_datetime_with_tz(divination_datetime, ctx.tz)}")
     elif method == "random":
         show_random_guide(console)
@@ -441,7 +475,7 @@ def run_interactive() -> None:
     show_quick_start(console, first_run=first_run)
 
     ctx, config = setup_user_context(config)
-    method = select_method()
+    method = select_method(config.last_method)
 
     coin_tosses, divination_dt, coin_mode, ctx = collect_divination_params(method, ctx, config)
 
@@ -465,11 +499,13 @@ def run_interactive() -> None:
         console.print(f"\n[dim]{result.method_desc}[/dim]")
 
     config.coin_mode = coin_mode if method == "coin" else ctx.coin_mode
+    config.last_method = method
     config.question = ctx.question
     config.bazi = ctx.bazi
     config.birth_datetime = ctx.birth_datetime
     config.timezone = ctx.tz.iana_name
     config.region_label = ctx.tz.region_label
+    config.calendar_mode = ctx.calendar_mode
     save_config(config)
     console.print(f"\n[dim]偏好已保存至 {CONFIG_PATH}[/dim]")
 

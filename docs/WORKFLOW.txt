@@ -2,7 +2,7 @@
   bagua 项目开发工作流程（Roadmap & Workflow）
   版本：v1.0
   更新日期：2026-06-24
-  当前代码版本：v0.6.0
+  当前代码版本：v0.8.1
 ================================================================================
 
 【文档用途】
@@ -10,7 +10,7 @@
   作为 bagua 单源路线图，开发前请先阅读并更新本文件。
 
 --------------------------------------------------------------------------------
-一、项目现状（v0.6.0）
+一、项目现状（v0.7.0）
 --------------------------------------------------------------------------------
 
 【已完成】
@@ -34,7 +34,10 @@
   [x] 农历时间起卦：bagua/lunar_util.py + calendar_mode
   [x] 六十四卦卦辞摘要：bagua/hexagram_texts.py（辅助 AI 提示词）
   [x] 夏令时：tzdata 可用时经 ZoneInfo 自动处理；回退模式提示不支持 DST
-  [x] 测试：pytest（46 项）
+  [x] 测试：pytest（50 项）
+  [x] PyInstaller 打包：packaging/*.spec + scripts/build.ps1
+  [x] GitHub Release CI：.github/workflows/release.yml
+  [x] 项目状态文档：docs/PROJECT_STATUS.md
 
 【入口方式】
   python bagua.py          # 向后兼容
@@ -212,16 +215,16 @@
     - 时间起卦可选用农历模式
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-阶段 5：打包与发布                                优先级：P2    预估：1 天
+阶段 5：打包与发布                                优先级：P2    预估：1 天  [已完成]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  任务 5.1  CLI 版 exe：pyinstaller --console --name bagua bagua.py
-  任务 5.2  GUI 版 exe：pyinstaller --windowed --name bagua-gui -m bagua.gui
-  任务 5.3  GitHub Release 发布双版本
-  任务 5.4  README 补充安装包下载说明
+  任务 5.1  CLI 版 exe：packaging/bagua.spec → dist/bagua.exe          [x]
+  任务 5.2  GUI 版 exe：packaging/bagua-gui.spec → dist/bagua-gui.exe  [x]
+  任务 5.3  GitHub Release：.github/workflows/release.yml + zip        [x]
+  任务 5.4  README 安装包说明 + docs/PROJECT_STATUS.md                 [x]
 
   验收标准：
-    - Windows 双击 exe 可运行
+    - Windows 双击 exe 可运行（未签名可能需 SmartScreen 确认）
     - 无控制台窗口（GUI 版）
 
 --------------------------------------------------------------------------------
@@ -289,10 +292,11 @@
   阶段 2  [已完成]  Tkinter GUI（v0.4.0，2026-06-24）
   阶段 3  [已完成]  体验增强（v0.5.0，2026-06-24）
   阶段 4  [已完成]  易学功能深化（v0.6.0，2026-06-24）
-  阶段 5  [待开始]  打包发布
+  阶段 5  [已完成]  打包发布（v0.7.0，2026-06-24）
 
+  持续更新文档：docs/PROJECT_STATUS.md
   最后更新人：AI Assistant
-  下次评审：阶段 1 完成后更新本文件
+  下次评审：v0.8.0 规划启动时
 
 ================================================================================
   END OF WORKFLOW

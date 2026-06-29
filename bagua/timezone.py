@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -111,7 +112,7 @@ def detect_system_timezone_name() -> str:
 
         tz = datetime.now().astimezone().tzinfo
         if tz is not None and hasattr(tz, "key"):
-            key = tz.key  # type: ignore[union-attr]
+            key = tz.key
             if key in available_timezones():
                 return key
     except Exception:

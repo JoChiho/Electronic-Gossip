@@ -3,7 +3,6 @@
 from datetime import datetime
 
 import pytest
-
 from bagua.lunar_util import (
     parse_lunar_datetime_input,
     resolve_time_divination_components,

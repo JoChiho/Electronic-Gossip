@@ -16,11 +16,12 @@ class CliArgs:
     bazi: str | None = None
     birth_datetime: str | None = None
     timezone: str | None = None
-    coin_mode: str = "auto"
+    coin_mode: str | None = None
     at: str | None = None
     save_record: bool = False
     output: str = "full"
     copy: bool = False
+    no_copy: bool = False
     list_records: bool = False
     show_record: str | None = None
     delete_record: str | None = None
@@ -48,8 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--coin-mode",
         choices=["manual", "auto"],
-        default="auto",
-        help="铜钱法模式（非交互默认 auto）",
+        default=None,
+        help="铜钱法模式；省略时读取 config.json 中的 coin_mode",
     )
     parser.add_argument("--at", metavar="TIME", help="时间起卦指定时刻（公历），如 2026-06-24 14:30")
     parser.add_argument(
@@ -80,6 +81,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="输出内容（非交互模式）",
     )
     parser.add_argument("--copy", action="store_true", help="将提示词复制到剪贴板")
+    parser.add_argument(
+        "--no-copy",
+        action="store_true",
+        help="禁止自动复制（覆盖 config 中的 auto_copy_prompt）",
+    )
     parser.add_argument("--list-records", action="store_true", help="列出历史占卜记录")
     parser.add_argument("--show-record", metavar="ID", help="查看记录（文件名或序号）")
     parser.add_argument("--delete-record", metavar="ID", help="删除记录（文件名或序号）")
@@ -110,6 +116,7 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         birth_datetime=ns.birth_datetime,
         timezone=ns.timezone,
         coin_mode=ns.coin_mode,
+        no_copy=ns.no_copy,
         at=ns.at,
         save_record=ns.save,
         output=ns.output,

@@ -1,6 +1,6 @@
 """配置持久化测试。"""
 
-from bagua.config import CONFIG_PATH, load_config, save_config
+from bagua.config import load_config, save_config
 from bagua.models import UserConfig
 
 
