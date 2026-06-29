@@ -38,6 +38,9 @@ class CliArgs:
     lower: int | None = None
     changing: int | None = None
     yarrow_show_process: bool | None = None
+    chars: str | None = None
+    char_strategy: str | None = None
+    stroke_mode: str | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,7 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "-m", "--method",
-        choices=["coin", "time", "random", "number", "manual", "yarrow"],
+        choices=["coin", "time", "random", "number", "manual", "yarrow", "character"],
         help="起卦方式（指定后进入非交互模式）",
     )
     parser.add_argument(
@@ -69,6 +72,21 @@ def build_parser() -> argparse.ArgumentParser:
         "--yarrow-show-process",
         action="store_true",
         help="蓍草法输出演卦过程（省略时读取 config.json 中的 yarrow_show_process）",
+    )
+    parser.add_argument(
+        "--chars",
+        metavar="TEXT",
+        help="汉字起卦文本，如 问事（省略时读取 config.json）",
+    )
+    parser.add_argument(
+        "--char-strategy",
+        choices=["auto", "first_two", "first_three", "total"],
+        help="汉字起卦策略（默认 auto）",
+    )
+    parser.add_argument(
+        "--stroke-mode",
+        choices=["kangxi", "simplified"],
+        help="汉字笔画口径：kangxi 康熙（默认）/ simplified 简体",
     )
     parser.add_argument("-q", "--question", help="占卜问题")
     parser.add_argument("--bazi", help="生辰八字")
@@ -187,4 +205,7 @@ def parse_cli_args(argv: list[str] | None = None) -> CliArgs:
         lower=ns.lower,
         changing=ns.changing,
         yarrow_show_process=True if ns.yarrow_show_process else None,
+        chars=ns.chars,
+        char_strategy=ns.char_strategy,
+        stroke_mode=ns.stroke_mode,
     )

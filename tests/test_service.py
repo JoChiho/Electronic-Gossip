@@ -126,6 +126,20 @@ def test_perform_divination_number():
     assert "体用" in result.prompt
 
 
+def test_perform_divination_character():
+    result = perform_divination(
+        "character",
+        _ctx(),
+        character_text="水火",
+        character_strategy="first_two",
+        character_stroke_mode="kangxi",
+    )
+    assert result.hexagram.name == "震为雷"
+    assert "汉字起卦" in result.method_desc
+    assert "【方法论·梅花字课】" in result.prompt
+    assert "水=4" in result.method_desc
+
+
 def test_perform_divination_yarrow():
     rng = random.Random(123)
     result = perform_divination("yarrow", _ctx(), rng=rng, yarrow_show_process=True)

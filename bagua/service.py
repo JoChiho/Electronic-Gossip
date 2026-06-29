@@ -13,6 +13,7 @@ from bagua.divination import (
     divinate_coin,
     divinate_manual,
 )
+from bagua.character import divinate_by_character
 from bagua.yarrow import divinate_yarrow
 from bagua.hexagram import build_hexagram
 from bagua.models import DivinationMethod, DivinationResult, UserContext
@@ -65,6 +66,9 @@ def perform_divination(
     coin_mode: str = "manual",
     auto_bazi: bool = True,
     yarrow_show_process: bool = False,
+    character_text: str | None = None,
+    character_strategy: str = "auto",
+    character_stroke_mode: str = "kangxi",
     rng: Random | None = None,
 ) -> DivinationResult:
     """
@@ -150,6 +154,15 @@ def perform_divination(
         values, method_desc, process_log = divinate_yarrow(
             rng,
             record_steps=yarrow_show_process,
+        )
+        divination_time = format_datetime_with_tz(dt_now, context.divination_tz)
+    elif method == "character":
+        if not character_text or not character_text.strip():
+            raise ValueError("汉字起卦需要输入汉字")
+        values, method_desc = divinate_by_character(
+            character_text,
+            strategy=character_strategy,
+            stroke_mode=character_stroke_mode,
         )
         divination_time = format_datetime_with_tz(dt_now, context.divination_tz)
     else:

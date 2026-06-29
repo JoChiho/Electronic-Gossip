@@ -23,6 +23,7 @@ from bagua.cli_guide import (
     show_quick_start,
     show_manual_guide,
     show_number_guide,
+    show_character_guide,
     show_yarrow_guide,
     show_random_guide,
     show_step,
@@ -39,6 +40,13 @@ from bagua.config import (
 )
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
 from bagua.data import TRIGRAMS
+from bagua.stroke_data import STROKE_MODE_LABELS, STROKE_MODES, format_stroke_preview
+from bagua.character import (
+    CHARACTER_STRATEGIES,
+    STRATEGY_LABELS,
+    parse_character_input,
+    resolve_strokes,
+)
 from bagua.divination import (
     coin_tosses_to_display,
     parse_coin_input,
@@ -209,22 +217,24 @@ def setup_user_context(config: UserConfig) -> tuple[UserContext, UserConfig]:
     return build_user_context(config), config
 
 
-def select_method(default: str = "coin") -> Literal["coin", "time", "random", "number", "manual", "yarrow"]:
+def select_method(
+    default: str = "coin",
+) -> Literal["coin", "time", "random", "number", "manual", "yarrow", "character"]:
     show_step(console, 2, "选择起卦方式")
     show_method_guide(console)
     default = normalize_method(default)
     default_label = METHOD_LABELS[default]
     console.print(f"[dim]直接回车 = 沿用上次：{default_label}[/dim]")
-    console.print("[dim]或输入 1–6 选择其他方式[/dim]\n")
+    console.print("[dim]或输入 1–7 选择其他方式[/dim]\n")
 
     mapping = {**METHOD_NUM_TO_KEY, "": default}
     while True:
-        choice = console.input(f"你的选择 [1/2/3/4/5/6，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
+        choice = console.input(f"你的选择 [1/2/3/4/5/6/7，默认 {METHOD_KEY_TO_NUM[default]}]: ").strip()
         if choice in mapping:
             picked = mapping[choice]
             console.print(f"[green]✓[/green] 已选择：{METHOD_LABELS[picked]}")
             return picked  # type: ignore[return-value]
-        console.print("[red]请输入 1、2、3、4、5、6，或直接回车。[/red]")
+        console.print("[red]请输入 1、2、3、4、5、6、7，或直接回车。[/red]")
 
 
 def _select_coin_mode(default: str) -> str:
@@ -358,6 +368,48 @@ def collect_manual_selection(config: UserConfig) -> tuple[int, int, int | None]:
     return upper, lower, changing
 
 
+def collect_character_input(config: UserConfig) -> tuple[str, str, str]:
+    show_character_guide(console)
+    default_text = config.character_input or "问"
+    default_strategy = config.character_strategy or "auto"
+    default_stroke = config.character_stroke_mode or "kangxi"
+
+    while True:
+        raw = console.input(f'请输入汉字 [默认 {default_text}]: ').strip() or default_text
+        parsed = parse_character_input(raw)
+        if parsed is None:
+            console.print("[red]需要至少一个汉字。[/red]")
+            continue
+        config.character_input = parsed
+        break
+
+    console.print("策略：" + " / ".join(f"{k}={STRATEGY_LABELS[k]}" for k in CHARACTER_STRATEGIES))
+    strategy_prompt = f"策略 [默认 {default_strategy}]: "
+    while True:
+        raw_strategy = console.input(strategy_prompt).strip() or default_strategy
+        if raw_strategy in CHARACTER_STRATEGIES:
+            config.character_strategy = raw_strategy
+            break
+        console.print(f"[red]请输入 {CHARACTER_STRATEGIES} 之一。[/red]")
+
+    stroke_prompt = f"笔画口径 kangxi/simplified [默认 {default_stroke}]: "
+    while True:
+        raw_stroke = console.input(stroke_prompt).strip() or default_stroke
+        if raw_stroke in STROKE_MODES:
+            config.character_stroke_mode = raw_stroke
+            break
+        console.print("[red]请输入 kangxi 或 simplified。[/red]")
+
+    chars, strokes, sources = resolve_strokes(
+        config.character_input,
+        stroke_mode=config.character_stroke_mode,
+    )
+    preview = format_stroke_preview(chars, strokes, sources, config.character_stroke_mode)
+    mode_label = STROKE_MODE_LABELS[config.character_stroke_mode]
+    console.print(f"[green]✓[/green] {preview}（{mode_label}）")
+    return config.character_input, config.character_strategy, config.character_stroke_mode
+
+
 def collect_number_inputs(config: UserConfig) -> list[int]:
     show_number_guide(console)
     stored = config.number_inputs or []
@@ -388,6 +440,7 @@ def collect_divination_params(
     list[int] | None,
     tuple[int, int, int | None] | None,
     bool,
+    tuple[str, str, str] | None,
     str,
     UserContext,
 ]:
@@ -398,6 +451,7 @@ def collect_divination_params(
     number_inputs: list[int] | None = None
     manual_selection: tuple[int, int, int | None] | None = None
     yarrow_show_process = False
+    character_options: tuple[str, str, str] | None = None
     coin_mode = ctx.coin_mode
     lunar_input: str | None = None
     calendar_mode = ctx.calendar_mode
@@ -464,6 +518,8 @@ def collect_divination_params(
         number_inputs = collect_number_inputs(config)
     elif method == "manual":
         manual_selection = collect_manual_selection(config)
+    elif method == "character":
+        character_options = collect_character_input(config)
     elif method == "yarrow":
         show_yarrow_guide(console)
         default_yes = config.yarrow_show_process
@@ -491,6 +547,7 @@ def collect_divination_params(
         number_inputs,
         manual_selection,
         yarrow_show_process,
+        character_options,
         coin_mode,
         updated_ctx,
     )
@@ -597,6 +654,7 @@ def run_interactive() -> None:
         number_inputs,
         manual_selection,
         yarrow_show_process,
+        character_options,
         coin_mode,
         ctx,
     ) = collect_divination_params(method, ctx, config)
@@ -620,9 +678,12 @@ def run_interactive() -> None:
         coin_mode=coin_mode if method == "coin" else ctx.coin_mode,
         auto_bazi=config.auto_bazi,
         yarrow_show_process=yarrow_show_process if method == "yarrow" else False,
+        character_text=character_options[0] if character_options else None,
+        character_strategy=character_options[1] if character_options else "auto",
+        character_stroke_mode=character_options[2] if character_options else "kangxi",
     )
 
-    if method in ("time", "yarrow"):
+    if method in ("time", "yarrow", "character"):
         console.print(f"\n[dim]{result.method_desc}[/dim]")
 
     config.coin_mode = coin_mode if method == "coin" else ctx.coin_mode

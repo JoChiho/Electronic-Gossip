@@ -8,7 +8,7 @@ from typing import Literal
 from bagua.data import YAO_POSITIONS, YAO_VALUE_NAMES
 from bagua.timezone import TimezoneInfo
 
-DivinationMethod = Literal["coin", "time", "random", "number", "manual", "yarrow"]
+DivinationMethod = Literal["coin", "time", "random", "number", "manual", "yarrow", "character"]
 CoinMode = Literal["manual", "auto"]
 
 
@@ -37,6 +37,9 @@ class UserConfig:
     manual_lower: int = 8
     manual_changing: int = 0
     yarrow_show_process: bool = False
+    character_input: str = "问"
+    character_strategy: str = "auto"
+    character_stroke_mode: str = "kangxi"
     birth_location: str = ""
     divination_location: str = ""
     birth_longitude: float | None = None

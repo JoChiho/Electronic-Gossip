@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bagua"
-version = "0.10.2"
+version = "0.11.0"
 description = "极简易经八卦占卜 CLI 工具"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,6 +29,9 @@ bagua-gui = "bagua.gui:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["bagua*"]
+
+[tool.setuptools.package-data]
+bagua = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

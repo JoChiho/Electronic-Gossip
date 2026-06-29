@@ -7,7 +7,9 @@ from tkinter import messagebox, ttk
 
 from bagua.bazi import compute_bazi
 from bagua.config import CONFIG_PATH, save_config
+from bagua.character import CHARACTER_STRATEGIES, STRATEGY_LABELS, resolve_strokes
 from bagua.data import MANUAL_CHANGING_OPTIONS, TRIGRAM_SELECT_OPTIONS
+from bagua.stroke_data import STROKE_MODE_LABELS, STROKE_MODES, format_stroke_preview
 from bagua.divination import parse_manual_changing, parse_number_input, parse_trigram_index, tosses_to_yao_value
 from bagua.locations import (
     LOCATION_CUSTOM,
@@ -61,6 +63,11 @@ class GuiFormsMixin:
     yarrow_show_process_var: tk.BooleanVar
     yarrow_process_frame: ttk.LabelFrame
     yarrow_process_text: tk.Text
+    character_frame: ttk.LabelFrame
+    character_input_var: tk.StringVar
+    character_strategy_var: tk.StringVar
+    character_stroke_mode_var: tk.StringVar
+    character_preview_var: tk.StringVar
     use_now_var: tk.BooleanVar
     calendar_var: tk.StringVar
     time_input_var: tk.StringVar
@@ -170,6 +177,7 @@ class GuiFormsMixin:
             ("number", "数字起卦"),
             ("manual", "手动选卦"),
             ("yarrow", "蓍草法"),
+            ("character", "汉字起卦"),
         ]
         method_row = ttk.Frame(frame, style="Card.TFrame")
         method_row.grid(row=0, column=0, columnspan=3, sticky=tk.W)
@@ -432,6 +440,98 @@ class GuiFormsMixin:
             style="Muted.TLabel",
         ).pack(anchor=tk.W, pady=(6, 0))
 
+    def _build_character_section(self, parent: ttk.Frame) -> None:
+        self.character_frame = ttk.LabelFrame(
+            parent, text="  汉字起卦（梅花字课）  ", style="Section.TLabelframe", padding=12
+        )
+        self.character_frame.pack(fill=tk.X, pady=(0, 8))
+
+        ttk.Label(
+            self.character_frame,
+            text="输入一字或一词；默认康熙字典笔画，未收录字以码点回退",
+            style="Muted.TLabel",
+            wraplength=360,
+        ).grid(row=0, column=0, columnspan=3, sticky=tk.W)
+
+        ttk.Label(self.character_frame, text="汉字", style="Field.TLabel").grid(
+            row=1, column=0, sticky=tk.W, pady=(10, 4),
+        )
+        self.character_input_var = tk.StringVar(value="问")
+        char_entry = ttk.Entry(self.character_frame, textvariable=self.character_input_var, width=24)
+        char_entry.grid(row=2, column=0, sticky=tk.W, padx=(0, 10))
+        char_entry.bind("<KeyRelease>", lambda _e: self._refresh_character_preview())
+
+        ttk.Label(self.character_frame, text="策略", style="Field.TLabel").grid(
+            row=1, column=1, sticky=tk.W, pady=(10, 4),
+        )
+        self.character_strategy_var = tk.StringVar(value="auto")
+        strategy_combo = ttk.Combobox(
+            self.character_frame,
+            textvariable=self.character_strategy_var,
+            values=[f"{k} — {STRATEGY_LABELS[k]}" for k in CHARACTER_STRATEGIES],
+            state="readonly",
+            width=22,
+        )
+        strategy_combo.grid(row=2, column=1, sticky=tk.W, padx=(0, 10))
+        strategy_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_character_strategy_changed())
+
+        ttk.Label(self.character_frame, text="笔画口径", style="Field.TLabel").grid(
+            row=1, column=2, sticky=tk.W, pady=(10, 4),
+        )
+        self.character_stroke_mode_var = tk.StringVar(value=STROKE_MODE_LABELS["kangxi"])
+        stroke_combo = ttk.Combobox(
+            self.character_frame,
+            textvariable=self.character_stroke_mode_var,
+            values=[STROKE_MODE_LABELS[m] for m in STROKE_MODES],
+            state="readonly",
+            width=14,
+        )
+        stroke_combo.grid(row=2, column=2, sticky=tk.W)
+        stroke_combo.bind("<<ComboboxSelected>>", lambda _e: self._refresh_character_preview())
+
+        self.character_preview_var = tk.StringVar(value="")
+        ttk.Label(
+            self.character_frame,
+            textvariable=self.character_preview_var,
+            style="Muted.TLabel",
+            wraplength=360,
+        ).grid(row=3, column=0, columnspan=3, sticky=tk.W, pady=(10, 0))
+
+    def _character_strategy_key(self) -> str:
+        raw = self.character_strategy_var.get().split(" — ", 1)[0].strip()
+        return raw if raw in CHARACTER_STRATEGIES else "auto"
+
+    def _character_stroke_mode_key(self) -> str:
+        label = self.character_stroke_mode_var.get()
+        for key, name in STROKE_MODE_LABELS.items():
+            if label == name:
+                return key
+        return "kangxi"
+
+    def _on_character_strategy_changed(self) -> None:
+        self._refresh_character_preview()
+        self._schedule_save()
+
+    def _refresh_character_preview(self) -> None:
+        text = self.character_input_var.get().strip()
+        if not text:
+            self.character_preview_var.set("")
+            return
+        try:
+            chars, strokes, sources = resolve_strokes(
+                text,
+                stroke_mode=self._character_stroke_mode_key(),
+            )
+            preview = format_stroke_preview(chars, strokes, sources, self._character_stroke_mode_key())
+            self.character_preview_var.set(preview)
+        except ValueError:
+            self.character_preview_var.set("（请输入有效汉字）")
+
+    def _collect_character_text(self) -> str | None:
+        from bagua.character import parse_character_input
+
+        return parse_character_input(self.character_input_var.get())
+
     def _on_yarrow_show_process_changed(self) -> None:
         if self.yarrow_show_process_var.get():
             self.yarrow_process_frame.grid(
@@ -474,6 +574,7 @@ class GuiFormsMixin:
                 var.trace_add("write", lambda *_: self._schedule_save())
         for var in (self.number_n1_var, self.number_n2_var, self.number_n3_var):
             var.trace_add("write", lambda *_: self._schedule_save())
+        self.character_input_var.trace_add("write", lambda *_: self._schedule_save())
         self.tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
         self.div_tz_combo.bind("<<ComboboxSelected>>", lambda _e: self._schedule_save())
 
@@ -572,6 +673,7 @@ class GuiFormsMixin:
         self.number_frame.pack_forget()
         self.manual_frame.pack_forget()
         self.yarrow_frame.pack_forget()
+        self.character_frame.pack_forget()
         if method == "coin":
             self.coin_frame.pack(fill=tk.X, pady=(0, 4))
             self._on_coin_mode_changed()
@@ -584,6 +686,9 @@ class GuiFormsMixin:
         elif method == "yarrow":
             self.yarrow_frame.pack(fill=tk.X, pady=(0, 4))
             self._on_yarrow_show_process_changed()
+        elif method == "character":
+            self.character_frame.pack(fill=tk.X, pady=(0, 4))
+            self._refresh_character_preview()
         self._schedule_save()
 
     def _on_coin_mode_changed(self) -> None:
@@ -753,7 +858,7 @@ class GuiFormsMixin:
             self.birth_var.set(cfg.birth_datetime)
             self.coin_mode_var.set(cfg.coin_mode if cfg.coin_mode in ("manual", "auto") else "manual")
             self.calendar_var.set(cfg.calendar_mode if cfg.calendar_mode in ("solar", "lunar") else "solar")
-            valid_methods = ("coin", "time", "random", "number", "manual", "yarrow")
+            valid_methods = ("coin", "time", "random", "number", "manual", "yarrow", "character")
             self.method_var.set(cfg.last_method if cfg.last_method in valid_methods else "coin")
             self.use_now_var.set(cfg.use_current_time)
             self.time_input_var.set(cfg.time_input)
@@ -761,6 +866,11 @@ class GuiFormsMixin:
             self._load_number_inputs_from_config(cfg)
             self._load_manual_from_config(cfg)
             self.yarrow_show_process_var.set(cfg.yarrow_show_process)
+            self.character_input_var.set(cfg.character_input or "问")
+            strategy = cfg.character_strategy if cfg.character_strategy in CHARACTER_STRATEGIES else "auto"
+            self.character_strategy_var.set(f"{strategy} — {STRATEGY_LABELS[strategy]}")
+            stroke_key = cfg.character_stroke_mode if cfg.character_stroke_mode in STROKE_MODES else "kangxi"
+            self.character_stroke_mode_var.set(STROKE_MODE_LABELS[stroke_key])
 
             labels = [label for _, label in TIMEZONE_PRESETS]
             if cfg.region_label in labels:
@@ -826,6 +936,9 @@ class GuiFormsMixin:
             manual_lower=manual_lower,
             manual_changing=manual_changing,
             yarrow_show_process=self.yarrow_show_process_var.get(),
+            character_input=self.character_input_var.get().strip(),
+            character_strategy=self._character_strategy_key(),
+            character_stroke_mode=self._character_stroke_mode_key(),
             birth_location=self._current_birth_location(),
             divination_location=self._current_div_location(),
             birth_longitude=self._effective_birth_longitude(),

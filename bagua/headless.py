@@ -21,6 +21,7 @@ from bagua.records import (
     save_record,
     search_records,
 )
+from bagua.character import parse_character_input
 from bagua.divination import parse_manual_changing, parse_number_input
 from bagua.service import perform_divination
 from bagua.timezone import label_for_timezone, parse_datetime_input
@@ -147,6 +148,23 @@ def _resolve_manual_selection(
     return upper, lower, changing
 
 
+def _resolve_character_options(
+    args: CliArgs,
+    config: UserConfig,
+) -> tuple[str, str, str]:
+    if args.method != "character":
+        raise ValueError("internal: character resolver called for wrong method")
+
+    text = args.chars or config.character_input
+    parsed = parse_character_input(text or "")
+    if parsed is None:
+        raise ValueError('汉字起卦需要 --chars "问事" 或在 config.json 中设置 character_input')
+
+    strategy = args.char_strategy or config.character_strategy or "auto"
+    stroke_mode = args.stroke_mode or config.character_stroke_mode or "kangxi"
+    return parsed, strategy, stroke_mode
+
+
 def _resolve_coin_tosses(args: CliArgs, config: UserConfig) -> list[list[int]] | None:
     coin_mode = args.coin_mode or config.coin_mode
     if args.method != "coin" or coin_mode != "manual":
@@ -204,6 +222,15 @@ def _update_config_from_args(
         config.auto_bazi = args.auto_bazi
     if args.yarrow_show_process is not None:
         config.yarrow_show_process = args.yarrow_show_process
+    if args.method == "character":
+        if args.chars:
+            parsed = parse_character_input(args.chars)
+            if parsed:
+                config.character_input = parsed
+        if args.char_strategy:
+            config.character_strategy = args.char_strategy
+        if args.stroke_mode:
+            config.character_stroke_mode = args.stroke_mode
     return config
 
 
@@ -303,6 +330,11 @@ def run_headless_divination(args: CliArgs) -> int:
         manual_upper = manual_lower = manual_changing = None
         if args.method == "manual":
             manual_upper, manual_lower, manual_changing = _resolve_manual_selection(args, config)
+        character_text = character_strategy = character_stroke_mode = None
+        if args.method == "character":
+            character_text, character_strategy, character_stroke_mode = _resolve_character_options(
+                args, config,
+            )
     except ValueError as exc:
         console.print(f"[red]{exc}[/red]")
         return 1
@@ -343,6 +375,9 @@ def run_headless_divination(args: CliArgs) -> int:
         coin_mode=coin_mode,
         auto_bazi=auto_bazi,
         yarrow_show_process=yarrow_show_process,
+        character_text=character_text,
+        character_strategy=character_strategy or "auto",
+        character_stroke_mode=character_stroke_mode or "kangxi",
     )
 
     config = _update_config_from_args(config, args, ctx)

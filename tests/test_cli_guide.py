@@ -4,7 +4,9 @@ from bagua.cli_guide import METHOD_LABELS, show_method_guide, show_quick_start, 
 
 
 def test_method_labels_complete():
-    assert set(METHOD_LABELS) == {"coin", "time", "random", "number", "manual", "yarrow"}
+    assert set(METHOD_LABELS) == {
+        "coin", "time", "random", "number", "manual", "yarrow", "character",
+    }
 
 
 def test_show_quick_start_runs(capsys):

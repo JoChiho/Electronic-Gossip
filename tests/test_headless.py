@@ -32,6 +32,19 @@ def test_headless_number_output(capsys):
     assert "火地晋" in captured.out
 
 
+def test_headless_character_output(capsys):
+    args = parse_cli_args([
+        "--method", "character",
+        "--chars", "水火",
+        "--char-strategy", "first_two",
+        "--output", "hexagram",
+        "--no-copy",
+    ])
+    code = run_headless_divination(args)
+    assert code == 0
+    assert "震为雷" in capsys.readouterr().out
+
+
 def test_headless_yarrow_with_process(capsys):
     args = parse_cli_args([
         "--method", "yarrow",

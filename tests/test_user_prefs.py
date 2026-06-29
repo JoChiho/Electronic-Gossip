@@ -25,3 +25,4 @@ def test_method_key_mapping():
     assert METHOD_KEY_TO_NUM["number"] == "4"
     assert METHOD_KEY_TO_NUM["manual"] == "5"
     assert METHOD_KEY_TO_NUM["yarrow"] == "6"
+    assert METHOD_KEY_TO_NUM["character"] == "7"

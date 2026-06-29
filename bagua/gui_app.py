@@ -166,6 +166,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
         self._build_number_section(self.options_container)
         self._build_manual_section(self.options_container)
         self._build_yarrow_section(self.options_container)
+        self._build_character_section(self.options_container)
 
         self._build_action_section(scroll_frame)
 
@@ -301,7 +302,7 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                 return
             ctx = self._build_context()
             method = cast(
-                Literal["coin", "time", "random", "number", "manual", "yarrow"],
+                Literal["coin", "time", "random", "number", "manual", "yarrow", "character"],
                 self.method_var.get(),
             )
             coin_tosses = None
@@ -359,6 +360,13 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                     return
                 manual_upper, manual_lower, manual_changing = manual_sel
 
+            character_text = None
+            if method == "character":
+                character_text = self._collect_character_text()
+                if character_text is None:
+                    messagebox.showerror("输入错误", "请输入至少一个汉字")
+                    return
+
             result = perform_divination(
                 method,
                 ctx,
@@ -371,6 +379,9 @@ class BaguaGuiApp(GuiFormsMixin, tk.Tk):
                 coin_mode=coin_mode,
                 auto_bazi=self._config.auto_bazi,
                 yarrow_show_process=self.yarrow_show_process_var.get(),
+                character_text=character_text,
+                character_strategy=self._character_strategy_key(),
+                character_stroke_mode=self._character_stroke_mode_key(),
             )
             self._last_result = result
 

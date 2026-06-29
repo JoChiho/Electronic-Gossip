@@ -2,6 +2,18 @@
 
 本文件记录 bagua 各版本变更，格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [0.11.0] - 2026-06-29
+
+### Added
+
+- **汉字起卦**（梅花字课）：以汉字笔画数起卦，复用梅花 mod 8 / mod 6
+- 笔画口径：**康熙字典**（默认）/ **简体**；字表 `bagua/data/strokes.json`
+- 未收录字以 Unicode 码点回退取数（method_desc 标注）
+- 策略：`auto` / `first_two` / `first_three` / `total`
+- CLI：`bagua -m character --chars "问事" --stroke-mode kangxi`；交互选项 7
+- GUI：汉字输入 + 策略/笔画 Combobox + 笔画预览
+- 模块 `bagua/character.py`、`bagua/stroke_data.py`
+
 ## [0.10.2] - 2026-06-29
 
 ### Added
