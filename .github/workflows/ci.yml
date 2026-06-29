@@ -6,17 +6,9 @@ on:
   pull_request:
     branches: [main]
 
-# 仓库名 Electronic-Gossip. 末尾带点，Windows runner 默认工作目录无法创建；
-# checkout 到无尾点的子目录规避（见 JoChiho/Electronic-Gossip. #actions）。
-env:
-  REPO_DIR: repo
-
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: ${{ env.REPO_DIR }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
@@ -24,8 +16,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: ${{ env.REPO_DIR }}
 
       - name: Set up Python
         uses: actions/setup-python@v5

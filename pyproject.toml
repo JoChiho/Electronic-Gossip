@@ -54,10 +54,17 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 module = [
     "bagua.divination",
+    "bagua.divination.*",
     "bagua.hexagram",
     "bagua.cli",
     "bagua.headless",
     "bagua.bazi",
     "bagua.lunar_util",
+    "bagua.gui_dpi",
+    "bagua.gui_theme",
+    "bagua.gui_history",
+    "bagua.gui_method_help",
+    "bagua.gui_forms",
+    "bagua.yarrow",
 ]
 ignore_errors = true
